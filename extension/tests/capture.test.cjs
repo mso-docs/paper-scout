@@ -2,94 +2,57 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const vm = require("node:vm");
-
 const content = readFileSync(`${__dirname}/../content.js`, "utf8");
-const popup = readFileSync(`${__dirname}/../popup.js`, "utf8");
 
-function scrape({ heading = null, title = "Paper title", type = "text/html" } = {}) {
+function scrape({ heading = null, title = "Paper title", type = "text/html", highlight = "", paragraph = null, section = null, div = null, editable = false, metadata = {}, url = "https://example.org/paper" } = {}) {
+  const common = { nodeType: 1, closest: selector => {
+    if (selector === "p") return paragraph === null ? null : { innerText: paragraph };
+    if (selector === "section") return section === null ? null : { innerText: section };
+    if (selector === "div") return div === null ? null : { innerText: div };
+    return editable ? {} : null;
+  } };
+  const textNode = { nodeType: 3, parentElement: common };
   return JSON.parse(JSON.stringify(vm.runInNewContext(content, {
+    Node: { ELEMENT_NODE: 1 },
     document: {
-      contentType: type,
-      title,
-      querySelector: () => heading === null ? null : { textContent: heading },
+      contentType: type, title,
+      querySelector: selector => selector === "h1" ? (heading === null ? null : { textContent: heading }) : { content: metadata[selector.match(/"([^"]+)"/)[1]] },
+      querySelectorAll: () => [],
     },
-    location: { href: "https://example.org/paper" },
+    window: { getSelection: () => ({ rangeCount: 1, isCollapsed: !highlight, toString: () => highlight,
+      getRangeAt: () => ({ startContainer: textNode, endContainer: textNode, commonAncestorContainer: textNode }) }) },
+    location: new URL(url),
   })));
 }
 
-function popupHarness({ tab = { id: 1, url: "https://example.org/paper" }, capture = scrape({ heading: "A paper" }), reject = false } = {}) {
-  const elements = Object.fromEntries(["capture", "status", "result", "heading", "page-title", "page-url"].map(id => [id, { dataset: {}, textContent: "", hidden: id === "result" }]));
-  let click;
-  let injections = 0;
-  elements.capture.addEventListener = (_, callback) => { click = callback; };
-  vm.runInNewContext(popup, {
-    URL,
-    document: { querySelector: selector => elements[selector.slice(1)] },
-    chrome: {
-      tabs: { query: async () => tab ? [tab] : [] },
-      scripting: { executeScript: async () => {
-        injections++;
-        if (reject) throw new Error("Cannot access contents of url");
-        return [{ result: capture }];
-      } },
-    },
-  });
-  return { elements, click, injections: () => injections };
-}
-
-test("capture normalizes heading whitespace and keeps title/URL separate", () => {
-  assert.deepEqual(scrape({ heading: "  A\n paper   title ", title: " Site title " }), {
-    status: "captured", heading: "A paper title",
-    pageMetadata: { title: "Site title", url: "https://example.org/paper" },
-  });
+test("capture keeps first heading separate from paper metadata and validates identifiers", () => {
+  const c = scrape({ heading: " Category\n name ", metadata: { citation_title: " Actual title ", citation_doi: "https://doi.org/10.1234/example" }, url: "https://arxiv.org/abs/1706.03762v2" });
+  assert.equal(c.heading, "Category name"); assert.equal(c.pageMetadata.title, "Actual title");
+  assert.equal(c.pageMetadata.doi, "10.1234/example"); assert.equal(c.pageMetadata.arxivId, "1706.03762v2");
+  assert.equal(scrape({ url: "https://fakearxiv.org/abs/1706.03762" }).pageMetadata.arxivId, null);
 });
-
-test("absent or empty headings remain absent instead of using document title", () => {
-  assert.equal(scrape().heading, null);
-  assert.equal(scrape({ heading: " \n " }).heading, null);
+test("missing heading does not block capture and empty selection is not a claim", () => {
+  assert.equal(scrape().heading, null); assert.equal(scrape({ heading: " \n " }).heading, null);
+  assert.equal(scrape().highlight, null);
 });
-
-test("PDF documents return an explicit unsupported result", () => {
+test("nested selection captures paragraph and section from a single snapshot", () => {
+  const c = scrape({ highlight: "This\n claim", paragraph: "Before. This claim. After.", section: "Section. Before. This claim. After. More." });
+  assert.equal(c.highlight, "This claim"); assert.equal(c.contexts.paragraph.text, "Before. This claim. After.");
+  assert.equal(c.contexts.section.effectiveRange, "section");
+});
+test("section falls back to a containing div; missing paragraph falls back visibly", () => {
+  const c = scrape({ highlight: "Across paragraphs", div: "Context. Across paragraphs. More." });
+  assert.equal(c.contexts.paragraph.effectiveRange, "highlight"); assert.match(c.contexts.paragraph.warning, /No single paragraph/);
+  assert.equal(c.contexts.section.text, "Context. Across paragraphs. More.");
+});
+test("oversized containers and incomplete context never silently truncate the claim", () => {
+  const c = scrape({ highlight: "Claim", paragraph: "Different text", section: `Claim${"x".repeat(24000)}` });
+  assert.equal(c.contexts.paragraph.text, "Claim"); assert.equal(c.contexts.section.text, "Claim");
+  assert.match(c.contexts.section.warning, /exceeds/);
+});
+test("editable fields, oversized selections, and PDFs are rejected", () => {
+  assert.match(scrape({ highlight: "Private draft", editable: true }).selectionError, /editable/);
+  assert.match(scrape({ highlight: "x".repeat(8001) }).selectionError, /shorter/);
+  assert.equal(scrape({ highlight: "x".repeat(8001) }).highlight, null);
   assert.deepEqual(scrape({ type: "application/pdf" }), { status: "unsupported-pdf" });
-});
-
-test("popup displays captured text literally and releases the button", async () => {
-  const h = popupHarness({ capture: scrape({ heading: '<img src=x onerror="alert(1)">' }) });
-  const pending = h.click();
-  assert.equal(h.elements.capture.disabled, true);
-  await pending;
-  assert.equal(h.elements.heading.textContent, '<img src=x onerror="alert(1)">');
-  assert.equal(h.elements.result.hidden, false);
-  assert.equal(h.elements.capture.disabled, false);
-  await h.click();
-  assert.equal(h.injections(), 2);
-});
-
-test("missing headings show a useful result with page metadata", async () => {
-  const h = popupHarness({ capture: scrape() });
-  await h.click();
-  assert.match(h.elements.heading.textContent, /No non-empty/);
-  assert.equal(h.elements["page-title"].textContent, "Paper title");
-  assert.equal(h.elements.result.hidden, false);
-});
-
-test("blocked schemes, missing tabs, and PDF URLs are rejected before injection", async () => {
-  for (const tab of [null, { id: 1, url: "chrome://extensions" }, { id: 1, url: "file:///paper.html" }, { id: 1, url: "https://example.org/paper.PDF?download=1" }]) {
-    const h = popupHarness({ tab });
-    await h.click();
-    assert.equal(h.injections(), 0);
-    assert.equal(h.elements.status.dataset.error, "true");
-    assert.equal(h.elements.capture.disabled, false);
-  }
-});
-
-test("injection failures, PDF viewer responses, and missing results hide stale output", async () => {
-  for (const options of [{ reject: true }, { capture: { status: "unsupported-pdf" } }, { capture: null }]) {
-    const h = popupHarness(options);
-    h.elements.result.hidden = false;
-    await h.click();
-    assert.equal(h.elements.result.hidden, true);
-    assert.equal(h.elements.status.dataset.error, "true");
-    assert.equal(h.elements.capture.disabled, false);
-  }
 });

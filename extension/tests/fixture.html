@@ -1,9 +1,22 @@
 <!doctype html>
 <html lang="en">
+<head>
   <meta charset="utf-8">
   <title>Paper Scout capture fixture</title>
-  <h1> A paper about <em>reliable</em> research </h1>
-  <p>Expected first heading: A paper about reliable research</p>
-  <h1>This second heading must not be captured</h1>
-  <p>For the missing-heading case, remove both h1 elements in DevTools and capture again.</p>
+  <meta name="citation_title" content="A paper about reliable research">
+  <meta name="citation_doi" content="10.1234/fixture">
+  <meta name="citation_author" content="Example Researcher">
+  <meta name="description" content="A local fixture for testing selection and context capture.">
+</head>
+<body>
+  <h1>A paper about <em>reliable</em> research</h1>
+  <section id="paper-section">
+    <h2>Results</h2>
+    <p id="claim-paragraph">In this small study, <strong id="claim">the intervention improved recall</strong> after one week. Larger trials are still needed.</p>
+    <p id="second-paragraph">Results may differ in other populations.</p>
+  </section>
+  <div id="div-context"><span id="div-claim">A claim outside a paragraph.</span> Additional div context.</div>
+  <p><label>Editable text (must not be captured): <textarea>Private draft</textarea></label></p>
+  <p>Highlight the bold claim and open Paper Scout. Paragraph includes its caveat; Section also includes the population limitation. Select across both paragraphs to verify the paragraph fallback. Try the claim outside a paragraph to verify the div fallback.</p>
+</body>
 </html>
