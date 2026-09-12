@@ -443,6 +443,15 @@ LLM_API_KEY=
 
 # 7. PDF Text Extraction
 
+**Status: Stretch goal — deferred.** The initial prototype targets HTML
+paper pages only; there wasn't enough time to build PDF support alongside
+the core flow. This section documents the intended approach for when it's
+picked back up, not something currently being implemented. It also only
+covers Chat with Paper's need for raw text — Claim Investigator on a PDF
+has a separate, unresolved question of whether a content script can even
+detect a highlight inside Chrome's built-in PDF viewer, which needs its
+own spike before that item is attempted.
+
 ## Purpose
 
 Many papers are read as browser-accessible PDFs rather than HTML pages.

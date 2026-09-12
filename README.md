@@ -23,9 +23,11 @@ Paper Scout has two modes.
 
 **Open Paper Scout → ask a question about the paper → get a grounded answer.**
 
-1. Open Paper Scout on a supported research paper — an HTML page or a browser-accessible PDF.
+1. Open Paper Scout on a supported research paper (HTML page).
 2. Ask a question, e.g. “What are the main findings?” or “What methodology did the authors use?”
 3. Paper Scout retrieves the paper's content and answers using only that content, saying so if the answer isn't present rather than guessing.
+
+*PDF support is a stretch goal — the prototype targets HTML paper pages first.*
 
 ## Why Paper Scout?
 
@@ -36,7 +38,7 @@ Paper Scout lives where research happens—the browser. Researchers can investig
 - Claim selection from highlighted text, with a configurable context range (highlight only / paragraph / section).
 - Context-aware research using the surrounding page.
 - Search across scholarly providers (see [`docs/integrations.md`](docs/integrations.md)), with results classified as supporting, contradicting, qualifying, or related.
-- Chat with Paper: grounded Q&A over the current paper's content, including browser-accessible PDFs.
+- Chat with Paper: grounded Q&A over the current paper's content (HTML pages; PDF is a stretch goal).
 - Concise results in a browser sidebar.
 
 ## Status

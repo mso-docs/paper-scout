@@ -1,5 +1,14 @@
 # Paper Scout — Getting Started Plan
 
+**Prototype scope:** HTML paper pages only. PDF support (item 12) is a
+**stretch goal** — deprioritized so we have a working end-to-end demo as
+fast as possible; pick it up only if there's time left after the core flow
+works.
+
+**Ownership:**
+- **Extension** (items 3, 4, 8, 9, 14, 15) — Mackenzie
+- **Backend + Docker** (items 5, 6, 7, 10, 11, 13) — Ruben
+
 ## 1. Research paper sites
 
 List the sites Paper Scout should recognize/support for context and searching.
@@ -39,6 +48,8 @@ Nail down what Paper Scout actually is/does, beyond the README draft.
 
 ## 3. Chrome extension bare bones
 
+**Owner: Mackenzie (Extension)**
+
 Stand up a minimal working extension as a technical foundation.
 
 - [ ] Create `extension/` directory with `manifest.json` (Manifest V3)
@@ -51,6 +62,8 @@ Stand up a minimal working extension as a technical foundation.
 - [ ] Document how to load/run the extension locally in README
 
 ## 4. Claim capture: highlight + surrounding context
+
+**Owner: Mackenzie (Extension)**
 
 Design decision: capture the user's highlighted claim as the focus, but always
 attach a context window around it — not the raw highlight alone, and not the
@@ -77,6 +90,8 @@ the cost of analyzing an entire paper.
 
 ## 5. API rate limiting
 
+**Owner: Ruben (Backend)**
+
 The research agent must throttle outgoing requests (paper-search APIs, LLM
 calls) rather than firing them as fast as possible. Real published limits are
 far below a flat 100-200 req/sec and vary a lot by service:
@@ -99,6 +114,8 @@ far below a flat 100-200 req/sec and vary a lot by service:
 
 ## 6. Per-source rate-limit registry
 
+**Owner: Ruben (Backend)**
+
 Every research paper site (item 1) has its own published rate limit, so
 throttling can't be one hardcoded number baked into the request code. Track
 limits in a single config/registry that the shared throttle reads from,
@@ -118,6 +135,8 @@ instead of scattering rate-limit logic across each integration.
 
 ## 7. Backend agent pipeline
 
+**Owner: Ruben (Backend)**
+
 The actual core of the product: turn a captured claim + context into a
 supporting/conflicting evidence summary. This is the piece none of the
 earlier items build yet.
@@ -136,6 +155,8 @@ earlier items build yet.
 
 ## 8. Sidebar UI
 
+**Owner: Mackenzie (Extension)**
+
 Render the agent's results where the README's MVP says they should appear —
 a browser sidebar, not just a popup.
 
@@ -147,6 +168,9 @@ a browser sidebar, not just a popup.
 - [ ] Handle and display error states (backend unreachable, no results)
 
 ## 9. End-to-end wiring: "Scout this claim" trigger
+
+**Owner: Mackenzie (Extension — depends on the backend from item 7 being
+callable)**
 
 Connect the pieces: highlight → context capture → backend call → sidebar
 result, matching the README's MVP flow.
@@ -160,6 +184,8 @@ result, matching the README's MVP flow.
       end-to-end
 
 ## 10. Local backend: Docker container
+
+**Owner: Ruben (Backend + Docker)**
 
 Make the backend (item 7) runnable locally with one command, so anyone on
 the team (or judges) can stand it up without configuring a local environment
@@ -178,6 +204,8 @@ by hand.
 
 ## 11. Backend tech stack
 
+**Owner: Ruben (Backend)**
+
 Decision: **Python**, so the same language handles API orchestration, PDF
 text extraction, and LLM calls without a second runtime.
 
@@ -192,12 +220,22 @@ text extraction, and LLM calls without a second runtime.
       defined in items 4, 7, and 13
 - [ ] Env loading: **python-dotenv**, reading `backend/.env` (see
       `backend/.env.example`)
-- [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12
+- [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12 (stretch
+      goal; not needed for the initial prototype)
 - [ ] Set up `backend/pyproject.toml` (or `requirements.txt`) pinning these
 - [x] Confirm this stack in `docs/integrations.md` (Backend Tech Stack
       section) so it isn't re-decided later
 
-## 12. Browser-accessible PDF support
+## 12. Browser-accessible PDF support (Stretch Goal)
+
+**Status: deferred.** Not enough time to build this alongside the core
+prototype — the initial demo targets HTML paper pages only. Revisit only
+if the HTML flow (items 3-11, 13-15) is fully working with time to spare.
+
+There's also open technical risk specific to Claim Investigator on PDFs
+(not just Chat with Paper's need for raw text): whether a content script
+can detect a highlight *inside* Chrome's built-in PDF viewer at all. That
+needs a spike before this item is picked up, not just implementation.
 
 Many papers are viewed as PDFs, not HTML. Chrome's built-in PDF viewer
 doesn't expose a normal scrapeable DOM to a content script the way an HTML
@@ -221,13 +259,16 @@ not by scraping the rendered viewer.
 
 ## 13. Chat with Paper: backend Q&A pipeline
 
+**Owner: Ruben (Backend)**
+
 Mirrors `docs/business-logic.md`'s Chat with Paper flow (identify paper →
 retrieve content → interpret question → retrieve relevant context →
-generate grounded answer).
+generate grounded answer). Prototype targets HTML pages only — see item 12
+for PDF, deferred as a stretch goal.
 
 - [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata)
-- [ ] Retrieve paper content: DOM text for HTML pages, extracted text for
-      PDFs (item 12)
+- [ ] Retrieve paper content: DOM text for HTML pages (PDF extraction is
+      the item 12 stretch goal, not required for the prototype)
 - [x] Decide the MVP context-retrieval approach: **send the full extracted
       paper text directly as LLM context** rather than building a chunking/
       embedding/vector-search pipeline — Claude's context window comfortably
@@ -241,6 +282,8 @@ generate grounded answer).
 
 ## 14. Chat with Paper: sidebar UI
 
+**Owner: Mackenzie (Extension)**
+
 - [ ] Add a chat interface to the same sidebar built in item 8 (tab or mode
       switch between "Investigate" and "Chat with Paper", not a separate
       panel)
@@ -251,11 +294,14 @@ generate grounded answer).
 
 ## 15. Chat with Paper: end-to-end wiring
 
+**Owner: Mackenzie (Extension — depends on the backend from item 13 being
+callable)**
+
 - [ ] Add a way to open Paper Scout / Chat with Paper on the current page
       (toolbar button or sidebar always-available tab — doesn't require a
       highlight, unlike item 9's trigger)
-- [ ] On question submit, capture page content per item 12/13 and send to
-      the backend
+- [ ] On question submit, capture page content per item 13 and send to the
+      backend
 - [ ] Populate the sidebar (item 14) with the response
-- [ ] Walk through the full flow on a real HTML paper and a real PDF to
-      confirm both work end-to-end
+- [ ] Walk through the full flow on a real HTML paper to confirm it works
+      end-to-end (PDF: stretch goal, see item 12)
