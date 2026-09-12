@@ -176,68 +176,19 @@ autonomous browsing as its primary research mechanism.
 
 ### MVP Integrations
 
------------------------------------------------------------------------
-
-  Source                  Authentication          Role
-
------------------------ ----------------------- -----------------------
-
-  Semantic Scholar        No API key for          Scholarly paper search,
-                          supported public        metadata,
-                          endpoints               citations/references
-
-  OpenAlex                API key configured      Scholarly search and
-                                                  metadata
-
-  Hugging Face Papers     API token configured    AI/ML paper discovery
-
-  arXiv                   No API key              Preprint search and
-                                                  metadata
-
-  DuckDuckGo Search       Python package          Supplemental web
-
-                                                  discovery/fallback
-  -----------------------------------------------------------------------
-
-The agent should access these providers through a common internal
-interface rather than embedding provider-specific logic throughout the
-application.
-
-Conceptually:
-
-``` python
-search_papers(query, providers=None)
-get_paper(identifier)
-search_web(query)
-```
-
-Provider adapters can normalize results into a common paper structure:
-
-``` text
-title
-authors
-abstract
-year
-doi
-arxiv_id
-url
-source
-citation_count
-full_text_url
-```
+See [`integrations.md`](integrations.md) for the current provider list,
+authentication requirements, the normalized paper structure, and the
+common search interface (`search_papers`, `get_paper`, `search_web`).
+That file is the source of truth for integration/API/tech-stack details;
+this section only covers how those providers are used in the business
+logic below.
 
 ### Search Priority
 
-For research evidence, prefer scholarly sources first:
-
-``` text
-Semantic Scholar
-OpenAlex
-arXiv
-Hugging Face Papers
-        ↓
-DuckDuckGo fallback / supplemental discovery
-```
+For research evidence, prefer scholarly sources first, falling back to
+DuckDuckGo only when scholarly results are insufficient (see
+`integrations.md` → Provider Selection / Fallback Behavior for the exact
+routing logic).
 
 DuckDuckGo results should not automatically be treated as scholarly
 evidence. They can help discover relevant papers, project pages,
@@ -479,31 +430,12 @@ Responsible for:
 
 # Provider Architecture
 
-Paper Scout should isolate external integrations behind adapters.
-
-``` text
-                     ┌─ Semantic Scholar
-                     ├─ OpenAlex
-Claim/Search Layer ──┼─ Hugging Face Papers
-                     ├─ arXiv
-                     └─ DuckDuckGo
-                            ↓
-                     Normalized Results
-                            ↓
-                     Evidence Evaluator
-```
-
-A provider failure should not necessarily fail the entire investigation.
-
-For example:
-
-``` text
-Semantic Scholar rate limited
-        ↓
-Continue with OpenAlex + arXiv + Hugging Face
-        ↓
-Return available evidence
-```
+Paper Scout should isolate external integrations behind adapters, and a
+provider failure should not necessarily fail the entire investigation
+(e.g. continue with the remaining providers if one is rate limited or
+times out). See [`integrations.md`](integrations.md) → Integration
+Architecture and Reliability/Failure Handling for the adapter diagram and
+the exact fallback behavior.
 
 The response may indicate that one or more providers were unavailable.
 
@@ -511,29 +443,12 @@ The response may indicate that one or more providers were unavailable.
 
 # Authentication and Secrets
 
-API credentials must not be embedded in the browser extension.
-
-For the current integration plan:
-
-``` text
-Semantic Scholar  → no key for public endpoints
-arXiv             → no key
-OpenAlex          → backend environment variable
-Hugging Face      → backend environment variable
-DuckDuckGo        → Python package
-LLM provider      → backend environment variable
-```
-
-Example backend environment variables:
-
-``` text
-OPENALEX_API_KEY=
-HF_TOKEN=
-LLM_API_KEY=
-```
-
-The extension communicates with the Paper Scout backend, and the backend
-communicates with authenticated providers.
+API credentials must not be embedded in the browser extension. The
+extension communicates with the Paper Scout backend, and the backend
+communicates with authenticated providers. See
+[`integrations.md`](integrations.md) → Secrets and Environment Variables
+for which providers require a key and the required backend environment
+variables.
 
 ------------------------------------------------------------------------
 
