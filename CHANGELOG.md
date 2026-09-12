@@ -10,6 +10,20 @@ tracked under [Unreleased].
 
 ### Added
 
+- Step 4 highlighted-claim capture with a three-position context slider:
+  Highlight only, Paragraph (default), and Section. Context previews preserve
+  the complete selection and show explicit fallbacks for missing or oversized
+  containers and selections spanning paragraphs.
+- Paper metadata capture and preview, including title, URL, DOI/arXiv ID,
+  authors, and available abstract text.
+- Chromium smoke checks for selection capture, context previews, and existing
+  connection/result behavior, plus optional live-page checks on the arXiv
+  Attention Is All You Need abstract and Mixtral of Experts HTML paper.
+  All 14 automated behavior tests and both browser checks passed on 2026-09-12.
+- Root `requirements.txt` and `requirements-dev.txt` with pinned direct runtime,
+  testing, and linting dependencies; `.python-version` sets Python 3.14.
+- README Getting started instructions for pip on Windows, macOS, and Linux,
+  optional uv setup, virtual environments, and shared dependency updates.
 - Manifest V3 extension foundation with toolbar popup, on-demand first-heading
   capture, page title/URL, icons, and missing-heading/unsupported-page handling.
 - Dependency-free capture behavior tests, a local HTML fixture, unpacked loading
@@ -65,6 +79,13 @@ tracked under [Unreleased].
 
 ### Changed
 
+- Marked all Step 3–4 items complete in `docs/plan.md` and refreshed extension
+  status, capture behavior, and verification documentation. Backend integration
+  and broader provider coverage remain separate work; backend code, API routing,
+  and the existing client payload contract were not changed by this milestone.
+- Abstract extraction uses explicit paper metadata or abstract DOM containers
+  instead of treating generic site descriptions as paper abstracts.
+- Expanded `.gitignore` to exclude Python virtual environments and tool caches.
 - Made HTML papers the required MVP path and PDF support a stretch goal;
   retained the PDF implementation plan without blocking MVP acceptance.
 
