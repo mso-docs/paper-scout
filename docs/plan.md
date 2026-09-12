@@ -1,5 +1,15 @@
 # Paper Scout — Getting Started Plan
 
+**Prototype scope:** HTML paper pages only. PDF support (item 12) is a
+**stretch goal** — deprioritized so we have a working end-to-end demo as
+fast as possible; pick it up only if there's time left after the core flow
+works.
+
+**Ownership:**
+
+- **Extension** (items 3, 4, 8, 9, 14, 15) — Mackenzie
+- **Backend + Docker** (items 5, 6, 7, 10, 11, 13) — Ruben
+
 ## 1. Research paper sites
 
 List the sites Paper Scout should recognize/support for context and searching.
@@ -224,12 +234,22 @@ text extraction, and LLM calls without a second runtime.
       defined in items 4, 7, and 13
 - [ ] Env loading: **python-dotenv**, reading `backend/.env` (see
       `backend/.env.example`)
-- [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12
+- [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12 (stretch
+      goal; not needed for the initial prototype)
 - [ ] Set up `backend/pyproject.toml` (or `requirements.txt`) pinning these
 - [x] Confirm this stack in `docs/integrations.md` (Backend Tech Stack
       section) so it isn't re-decided later
 
-## 12. Browser-accessible PDF support
+## 12. Browser-accessible PDF support (Stretch Goal)
+
+**Status: deferred.** Not enough time to build this alongside the core
+prototype — the initial demo targets HTML paper pages only. Revisit only
+if the HTML flow (items 3-11, 13-15) is fully working with time to spare.
+
+There's also open technical risk specific to Claim Investigator on PDFs
+(not just Chat with Paper's need for raw text): whether a content script
+can detect a highlight *inside* Chrome's built-in PDF viewer at all. That
+needs a spike before this item is picked up, not just implementation.
 
 Many papers are viewed as PDFs, not HTML. Chrome's built-in PDF viewer
 doesn't expose a normal scrapeable DOM to a content script the way an HTML
@@ -261,8 +281,8 @@ generate grounded answer). Prototype targets HTML pages only — see item 12
 for PDF, deferred as a stretch goal.
 
 - [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata)
-- [ ] Retrieve paper content: DOM text for HTML pages, extracted text for
-      PDFs (item 12)
+- [ ] Retrieve paper content: DOM text for HTML pages (PDF extraction is
+      the item 12 stretch goal, not required for the prototype)
 - [x] Decide the MVP context-retrieval approach: **send the full extracted
       paper text directly as LLM context** rather than building a chunking/
       embedding/vector-search pipeline — Claude's context window comfortably
@@ -294,8 +314,8 @@ callable)**
 - [ ] Add a way to open Paper Scout / Chat with Paper on the current page
       (toolbar button or sidebar always-available tab — doesn't require a
       highlight, unlike item 9's trigger)
-- [ ] On question submit, capture page content per item 12/13 and send to
-      the backend
+- [ ] On question submit, capture page content per item 13 and send to the
+      backend
 - [ ] Populate the sidebar (item 14) with the response
-- [ ] Walk through the full flow on a real HTML paper and a real PDF to
-      confirm both work end-to-end
+- [ ] Walk through the full flow on a real HTML paper to confirm it works
+      end-to-end (PDF: stretch goal, see item 12)
