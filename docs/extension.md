@@ -1,3 +1,10 @@
+> **0.3.0 update:** The sidebar now implements Steps 8 and 14 and the Step 15
+> chat wiring, using the real `/investigate` and `/chat` routes. See
+> [current usage and verification](../extension/README.md). Live arXiv HTML
+> capture reached FastAPI, but Anthropic returned 401; successful live chat
+> acceptance remains pending. The older popup proposal below is retained for
+> context and does not describe the sidebar’s backend contract.
+
 # Extension foundation and delivery checklist
 
 ## Implemented in Steps 3–4
@@ -47,7 +54,7 @@ These are required for the product MVP; they are not provided by the popup demo.
   ID where available, with URL provenance. Verify representative pages from
   arXiv, Semantic Scholar, OpenAlex, and Hugging Face; distinguish abstract and
   model/dataset landing pages from full papers.
-- [ ] **HTML content (Step 13):** extract usable HTML paper text;
+- [x] **HTML content (Step 13):** extract usable HTML paper text;
   set size/time limits and handle extraction
   failures. Indicate when only an abstract or partial content is available.
   Do not present heading capture as full-paper capture.
@@ -59,12 +66,13 @@ These are required for the product MVP; they are not provided by the popup demo.
   response with the business-logic categories: supports, contradicts,
   qualifies, related, and insufficient evidence. Return source links and
   clearly distinguish source claims from generated synthesis.
-- [ ] **Sidebar and claim trigger (Steps 8–9):** add a background worker,
+- [x] **Sidebar (Step 8):** shared modes, loading/errors and source identity.
+- [ ] **Claim trigger (Step 9):** add a background worker,
   selection context menu, and sidebar when needed. Standardize the action
   label (README uses “Investigate Claim”; Step 9 uses “Scout this claim”).
   Preserve the originating tab/URL and keep results associated with the right
   paper across navigation and tab switches. Include loading, retry, and error UI.
-- [ ] **Paper chat (Steps 13–15):** grounded answers and explicit “not present”
+- [x] **Paper chat UI/wiring (Steps 13–15):** grounded answers and explicit “not present”
   responses, conversation history, and a shared sidebar mode switch. Define
   history transport and reset behavior when the paper changes.
 - [ ] **End-to-end acceptance (Steps 9, 15):** investigate a highlighted claim

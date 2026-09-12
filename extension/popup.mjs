@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, clearSecrets, validateSettings, hostPattern } from "./settings.mjs";
+import { loadSettings, saveContextRange, saveSettings, clearSecrets, validateSettings, hostPattern } from "./settings.mjs";
 import { claimPayload, requestApi, validateInvestigation } from "./api.mjs";
 
 const $ = id => document.getElementById(id);
@@ -100,7 +100,10 @@ function evidenceResults(data) {
 $("show-settings").addEventListener("click", () => showSettings(true));
 $("show-capture").addEventListener("click", () => showSettings(false));
 $("capture").addEventListener("click", capturePage);
-$("context-range").addEventListener("input", renderCapture);
+$("context-range").addEventListener("input", () => {
+  renderCapture();
+  saveContextRange(selectedRange()).catch(error => message("status", error.message, true));
+});
 $("ai-enabled").addEventListener("change", () => { $("ai-fields").hidden = !$("ai-enabled").checked; });
 $("settings-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -159,3 +162,8 @@ try {
   $("settings-fields").disabled = false; $("test-connection").disabled = false; $("clear-keys").disabled = false;
 } catch { message("settings-status", "Couldn't load settings. Reload the extension and try again.", true); }
 await capturePage();
+
+$("open-sidebar").addEventListener("click", () => {
+  if (!Number.isInteger(originTabId)) return message("status", "Open Paper Scout on an HTML paper first.", true);
+  chrome.sidePanel.open({ tabId: originTabId }).then(() => window.close()).catch(error => message("status", error.message, true));
+});

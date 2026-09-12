@@ -63,3 +63,10 @@ export async function saveSettings(input, secrets) {
 export async function clearSecrets() {
   await Promise.all([chrome.storage.local.remove("secrets"), chrome.storage.session.remove("secrets")]);
 }
+
+// Save only this preference so changing context does not overwrite connection keys.
+export async function saveContextRange(contextRange) {
+  if (!["highlight", "paragraph", "section"].includes(contextRange)) throw new Error("Choose a valid context range.");
+  const { settings } = await chrome.storage.local.get("settings");
+  await chrome.storage.local.set({ settings: { ...DEFAULTS, ...settings, contextRange } });
+}

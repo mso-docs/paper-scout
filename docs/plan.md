@@ -211,12 +211,18 @@ earlier items build yet.
 Render the agent's results where the README's MVP says they should appear —
 a browser sidebar, not just a popup.
 
-- [ ] Build a sidebar UI (`chrome.sidePanel` API) separate from the h1-demo
+- [x] Build a sidebar UI (`chrome.sidePanel` API) separate from the h1-demo
       popup in item 3
-- [ ] Show a loading state while the backend investigates
-- [ ] Render the summary plus supporting/conflicting evidence sections with
+- [x] Show a loading state while the backend investigates
+- [x] Render the summary plus supporting/conflicting evidence sections with
       source links
-- [ ] Handle and display error states (backend unreachable, no results)
+- [x] Handle and display error states (backend unreachable, no results)
+
+Implemented in `extension/sidepanel.html` using Chrome’s Side Panel API
+(Chrome 116+). Open it from the toolbar popup; capture a selection and choose
+its context before investigating. The sidebar uses the backend’s implemented
+`/investigate` route and snake_case contract. Step 9’s context menu remains
+separate work.
 
 ## 9. End-to-end wiring: "Scout this claim" trigger
 
@@ -226,13 +232,21 @@ callable)**
 Connect the pieces: highlight → context capture → backend call → sidebar
 result, matching the README's MVP flow.
 
-- [ ] Add a context-menu item ("Scout this claim") that appears on text
+- [x] Add a context-menu item ("Scout this claim") that appears on text
       selection
-- [ ] On click, capture context per item 4's slider setting and send the
+- [x] On click, capture context per item 4's slider setting and send the
       request to the backend from item 7
-- [ ] Open/populate the sidebar (item 8) with the response
-- [ ] Walk through the full flow on a real paper page to confirm it works
+- [x] Open/populate the sidebar (item 8) with the response
+- [x] Walk through the full flow on a real paper page to confirm it works
       end-to-end
+
+Verified 2026-09-12 with Chromium on the live Mixtral of Experts arXiv HTML
+page and the running FastAPI `/investigate` endpoint. The sidebar displayed the
+backend's classification-unavailable fallback; successful evidence rendering was
+verified separately with a local API double. Browser automation invokes the menu
+handler with a real selection and user gesture (native context-menu clicking and
+permission-dialog acceptance remain manual checks). Context capture and sidebar
+APIs are real. See `extension/tests/scout-smoke.mjs` and `extension/README.md`.
 
 ## 10. Local backend: Docker container
 
@@ -332,11 +346,11 @@ retrieve content → interpret question → retrieve relevant context →
 generate grounded answer). Prototype targets HTML pages only — see item 12
 for PDF, deferred as a stretch goal.
 
-- [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata) —
+- [x] Identify the current paper (URL, DOI, arXiv ID, or page metadata) —
       this is fundamentally an Extension/DOM task (item 4); the backend
       just accepts whatever `page_metadata` the extension already
       identified, it doesn't detect anything itself
-- [ ] Retrieve paper content: DOM text for HTML pages — same as above, this
+- [x] Retrieve paper content: DOM text for HTML pages — same as above, this
       is the Extension's job (item 4's capture logic); the backend receives
       `page_content` as a plain string, it doesn't scrape anything
 - [x] Decide the MVP context-retrieval approach: **send the full extracted
@@ -361,12 +375,12 @@ for PDF, deferred as a stretch goal.
 
 **Owner: Mackenzie (Extension)**
 
-- [ ] Add a chat interface to the same sidebar built in item 8 (tab or mode
+- [x] Add a chat interface to the same sidebar built in item 8 (tab or mode
       switch between "Investigate" and "Chat with Paper", not a separate
       panel)
-- [ ] Input box for the question, message history for the conversation
-- [ ] Loading state while the backend answers
-- [ ] Visually distinguish a grounded answer from a "not present in this
+- [x] Input box for the question, message history for the conversation
+- [x] Loading state while the backend answers
+- [x] Visually distinguish a grounded answer from a "not present in this
       paper" response
 
 ## 15. Chat with Paper: end-to-end wiring
@@ -374,11 +388,19 @@ for PDF, deferred as a stretch goal.
 **Owner: Mackenzie (Extension — depends on the backend from item 13 being
 callable)**
 
-- [ ] Add a way to open Paper Scout / Chat with Paper on the current page
+- [x] Add a way to open Paper Scout / Chat with Paper on the current page
       (toolbar button or sidebar always-available tab — doesn't require a
       highlight, unlike item 9's trigger)
-- [ ] On question submit, capture page content per item 13 and send to the
+- [x] On question submit, capture page content per item 13 and send to the
       backend
-- [ ] Populate the sidebar (item 14) with the response
+- [x] Populate the sidebar (item 14) with the response
 - [ ] Walk through the full flow on a real HTML paper to confirm it works
       end-to-end (PDF: stretch goal, see item 12)
+
+Implementation is complete. Verification on 2026-09-12 captured the live
+Mixtral of Experts HTML paper, posted to the actual FastAPI `/chat` endpoint,
+and displayed the backend failure correctly. A successful live AI answer is
+blocked by Anthropic `401 Unauthorized` with the available configuration; the
+final acceptance checkbox remains open until valid backend credentials are
+configured. Grounded and ungrounded rendering, history, cancellation, errors,
+and extraction are verified in real Chromium with a local API test double.

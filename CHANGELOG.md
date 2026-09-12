@@ -10,6 +10,46 @@ tracked under [Unreleased].
 
 ### Added
 
+- Chrome Side Panel UI for Steps 8 and 14 with Investigate / Chat with Paper
+  modes, selection/context preview, four evidence categories and source links,
+  empty-result notices, loading, cancellation, timeouts and error states.
+- Step 15 toolbar-popup entry point that opens the sidebar without a highlight;
+  question submission captures HTML paper text and metadata and calls `/chat`.
+  Conversation history distinguishes grounded and ungrounded responses, supports
+  clearing, and resets on source navigation/tab switches. History is display-only;
+  backend questions remain independent.
+- `backend-api.mjs` adapts sidebar requests to the existing snake_case
+  `/investigate` and `/chat` contracts, validates responses, suppresses unsafe
+  source links, distinguishes backend chat failures from absent evidence, and
+  rejects unsupported custom AI settings before forwarding credentials.
+- `paper-content.js` extracts article/main/body text, excludes controls and hidden
+  content, and rejects empty, PDF and over-200,000-character input without
+  truncation. Sidebar submissions retain source identity and reject stale results.
+- Sidebar connection settings reuse the popup’s backend URL/token storage and
+  optional host permissions. Captures, mode switches and history stay local until
+  an explicit investigation/question submission.
+- Backend-adapter unit checks and a real Chromium sidebar smoke test for both
+  modes, safe rendering, payloads, history, empty results, cancellation/failures,
+  navigation reset and bounded HTML extraction; optional live arXiv/FastAPI chat
+  acceptance via `--real-backend` on port 8788.
+  Validation on 2026-09-12: unit checks, existing popup browser regression,
+  sidebar browser smoke checks and `git diff --check` passed. Live AI acceptance
+  remains blocked as described below.
+
+- Step 9 selection context menu, **Scout this claim**, with a Manifest V3
+  service worker that opens the sidebar during the click gesture and captures
+  the highlighted HTML claim. A window-scoped session handoff supports cold
+  sidebar startup and subsequent selections without persisting paper text to disk.
+- Automatic sidebar investigations using the existing `/investigate` backend
+  adapter, saved context range, source-page checks, loading/errors, cancellation
+  of superseded requests, and removal of consumed handoffs. Changed selections
+  and embedded-frame selections fail explicitly rather than sending another claim.
+- Menu registration/gesture and invalid-selection tests plus a Chromium smoke
+  check for cold/warm sidebar delivery, actual HTTP payloads, evidence rendering,
+  and backend errors. Live arXiv HTML → FastAPI → sidebar verified 2026-09-12;
+  the live backend returned classification-unavailable fallback. Native menu
+  clicking remains manual; automation invokes its handler with real browser APIs.
+
 - Step 4 highlighted-claim capture with a three-position context slider:
   Highlight only, Paragraph (default), and Section. Context previews preserve
   the complete selection and show explicit fallbacks for missing or oversized
@@ -78,6 +118,23 @@ tracked under [Unreleased].
 - README "Running the backend locally" section (Docker and non-Docker paths).
 
 ### Changed
+
+- Extension version is 0.3.0, adds `sidePanel` permission/default panel and requires
+  Chrome 116+. The original popup remains separate and links to the sidebar.
+- Updated root/extension READMEs, extension delivery checklist and backend handoff
+  to document actual sidebar contracts, usage, content/history limits and checks;
+  distinguished them from the legacy popup’s proposed versioned API.
+- Checked off Steps 8 and 14, Step 15’s three implementation items, and Step 13’s
+  prerequisite metadata/HTML capture items in `docs/plan.md`. The final Step 15
+  live-answer acceptance remains unchecked: on 2026-09-12, the live Mixtral HTML
+  page reached the real FastAPI `/chat` route, but Anthropic returned 401 with
+  the available credentials. The sidebar correctly displayed the failure.
+
+- Popup context-slider and sidebar context choices now save the preference used
+  by the selection menu without rewriting connection secrets.
+- Checked off step 9 in `docs/plan.md` and documented setup, verification commands,
+  and the limits of live-backend verification in the extension README. This work
+  builds on sidebar/backend-adapter changes already present in the workspace.
 
 - Marked all Step 3–4 items complete in `docs/plan.md` and refreshed extension
   status, capture behavior, and verification documentation. Backend integration

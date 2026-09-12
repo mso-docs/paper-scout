@@ -13,6 +13,7 @@
     <button id="show-capture" aria-pressed="true" type="button">Capture</button>
     <button id="show-settings" aria-pressed="false" type="button">Settings</button>
   </nav>
+  <button id="open-sidebar" type="button">Open sidebar / Chat with Paper</button>
   <main>
     <section id="capture-view">
       <p class="hint">Highlight a claim on an HTML page, then open Paper Scout. Review the captured context before sending.</p>
@@ -33,7 +34,7 @@
       <div class="actions"><button id="investigate" type="button" disabled>Investigate Claim</button><button id="cancel" type="button" class="secondary" hidden>Cancel</button></div>
       <p id="api-status" role="status" aria-live="polite"></p>
       <section id="evidence" class="card" aria-label="Investigation results" hidden></section>
-      <p class="hint">Paper chat and PDFs are not available yet. Captures and results clear when this popup closes; closing it cancels a pending request.</p>
+      <p class="hint">Open the sidebar above to investigate or chat with this HTML paper. PDFs are not available yet. Captures and results clear when this popup closes; closing it cancels a pending request.</p>
     </section>
     <section id="settings-view" hidden aria-label="Connection settings">
       <form id="settings-form">

@@ -2,11 +2,13 @@
   "manifest_version": 3,
   "name": "Paper Scout",
   "description": "Capture highlighted research claims with surrounding context and connect to your Paper Scout backend.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "sidePanel",
+    "contextMenus"
   ],
   "action": {
     "default_title": "Paper Scout \u2014 capture page",
@@ -22,10 +24,17 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "minimum_chrome_version": "102",
+  "minimum_chrome_version": "116",
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
-  ]
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.mjs",
+    "type": "module"
+  }
 }

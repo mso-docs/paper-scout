@@ -1,7 +1,19 @@
 # Ruben: backend handoff for the extension
 
-Status: proposed API v1.0 contract, implemented by the extension client and its
-local test double. This document does **not** assert that the real backend has
+Status (0.3.0): the sidebar is integrated with the **existing** `/investigate`
+and `/chat` backend via `backend-api.mjs`. Investigation sends
+`{ highlight, context_range, context, page_metadata }` and reads
+`{ summary, supporting, contradicting, qualifying, related }` with
+`{ title, url, why }` evidence items. Chat sends
+`{ question, page_content, page_metadata }` and validates `{ answer, grounded }`.
+History is display-only; each question is independent. Chat rejects pages above
+200,000 characters without truncation. Missing/unsafe evidence URLs render as
+plain titles. The backend's generic chat failure is displayed as an error, not
+as an unsupported-paper finding. Custom AI settings are rejected by the sidebar
+because this backend does not implement them.
+
+The remainder records the **legacy popup's proposed API v1.0 contract**,
+implemented by that client and its local test double. This document does **not** assert that the real backend has
 these endpoints. No backend or Docker files were changed for this milestone.
 
 ## Ownership and delivery order
@@ -10,8 +22,7 @@ Mackenzie owns `extension/`: page/selection capture, context preview, settings,
 request transport, and response rendering. Ruben owns the backend, AI agent,
 research-provider integrations, request validation, throttling, and Docker.
 
-Build the HTML flow first. PDFs remain a stretch goal. The current client only
-sends claim investigations; the chat contract below is for a later milestone.
+Build the HTML flow first. PDFs remain a stretch goal. The legacy popup only sends claim investigations; its proposed versioned chat contract below is not the sidebar’s implemented contract.
 
 Suggested backend sequence:
 

@@ -45,7 +45,7 @@ Browser-accessible PDF support is a stretch goal if time and implementation comp
 
 ## Status
 
-Steps 3–4 provide HTML page and highlighted-claim capture in a toolbar popup, with a three-level context slider and paper metadata preview. The backend (`POST /investigate`, `POST /chat`) is implemented, covering scholarly search + evidence classification and grounded paper Q&A. The existing connection UI awaits integration with the backend; sidebar results and end-to-end wiring between the two remain planned. See [`docs/plan.md`](docs/plan.md) and the [extension MVP checklist](docs/extension.md) for remaining extension work, [`docs/business-logic.md`](docs/business-logic.md) for product behavior, and [`docs/integrations.md`](docs/integrations.md) for backend details.
+Steps 3–4 provide HTML claim capture and metadata in the toolbar popup. Steps 8, 14, and 15 add a shared Investigate / Chat with Paper sidebar wired to the implemented backend (`POST /investigate`, `POST /chat`). Open **Open sidebar / Chat with Paper** from the popup, save the backend connection, then capture a claim or ask a question without highlighting. Sidebar behavior is verified in Chromium; the live arXiv-to-backend request worked, but successful live AI verification awaits valid Anthropic credentials (the current configuration returned 401). The Step 9 context-menu trigger remains planned. See [`docs/plan.md`](docs/plan.md) and [extension documentation](extension/README.md).
 
 ## Getting started
 
@@ -129,13 +129,15 @@ The browser extension remains dependency-free JavaScript and needs no Python bui
 
 ## Run the extension locally
 
-1. Open `chrome://extensions` in Chrome or Chromium and enable **Developer mode**.
+1. Open `chrome://extensions` in Chrome or Chromium 116+ and enable **Developer mode**.
 2. Click **Load unpacked** and select this repository's `extension/` directory (the folder containing `manifest.json`). No install, build, API keys, or backend is needed.
 3. Pin **Paper Scout** from the browser's extensions menu.
 4. Open an HTML paper page, highlight a claim, then click the Paper Scout toolbar icon. Capture runs automatically; **Capture current page** refreshes it.
 5. Choose **Highlight only**, **Paragraph** (default), or **Section** with the slider. Review the claim, context, fallback warnings, and page metadata. You can also capture page metadata without a selection.
 
-Captures stay in the popup until it closes. Capture and slider changes send nothing; **Investigate Claim** explicitly sends to the configured backend. Connection settings persist locally. PDF capture and protected browser pages aren't supported in this preview. Try a paper's HTML or abstract page first.
+6. Click **Open sidebar / Chat with Paper**. In the sidebar’s Connection settings, save the backend URL (default `http://localhost:8787`) and accept host access. Use **Capture current selection → Investigate claim**, or switch to **Chat with Paper** and submit a question. Run the backend with valid AI credentials for answers.
+
+Captures stay in the popup until it closes. Capture and slider changes send nothing; the sidebar’s **Investigate claim** and **Ask paper** explicitly send to the configured backend. The legacy popup investigation client still uses the proposed `/v1/investigations` endpoint; use the sidebar with this repository’s backend. Connection settings persist locally. PDF capture and protected browser pages aren't supported in this preview. Try a paper's HTML or abstract page first.
 
 After editing extension files, click **Reload** on its card in `chrome://extensions`, then reopen the popup. For debugging, right-click the popup and choose **Inspect**, or check the extension card's **Errors** panel.
 

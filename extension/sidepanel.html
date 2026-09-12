@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Paper Scout sidebar</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="sidepanel.css"><script type="module" src="sidepanel.mjs"></script></head>
+<body>
+<header><img src="icons/icon32.png" width="32" height="32" alt=""><div><h1>Paper Scout</h1><p>Explore the evidence. Understand the paper.</p></div></header>
+<nav aria-label="Paper Scout mode"><button id="mode-investigate" aria-pressed="true">Investigate</button><button id="mode-chat" aria-pressed="false">Chat with Paper</button></nav>
+<p id="source" class="hint" role="status">Open Paper Scout from the toolbar on an HTML paper.</p>
+<details><summary>Connection settings</summary><form id="connection-form"><label for="backend-url">Backend URL</label><input id="backend-url" type="url" required><label for="backend-token">Backend token (optional)</label><input id="backend-token" type="password" autocomplete="off"><button id="save-connection">Save connection</button></form><p id="connection-status" role="status"></p></details>
+<main>
+<section id="investigate-view"><button id="capture">Capture current selection</button><label for="range">Surrounding context</label><select id="range"><option value="highlight">Highlight only</option><option value="paragraph" selected>Paragraph</option><option value="section">Section</option></select><blockquote id="highlight"></blockquote><p id="context" class="captured-text"></p><p id="warning" class="warning"></p><button id="investigate" disabled>Investigate claim</button><section id="evidence" aria-label="Investigation results" hidden></section></section>
+<section id="chat-view" hidden><p class="hint">Each question sends the current HTML page text to your saved backend. Only content loaded on this page is available. Questions are answered independently; history is shown here until the page changes or the sidebar closes.</p><div id="history" role="log" aria-label="Conversation" aria-live="polite"></div><form id="chat-form"><label for="question">Question about this paper</label><textarea id="question" maxlength="8000" required></textarea><button id="ask">Ask paper</button></form><button id="clear-history" class="secondary">Clear conversation</button></section>
+<p id="status" role="status" aria-live="polite"></p><button id="cancel" hidden>Cancel request</button>
+</main></body></html>

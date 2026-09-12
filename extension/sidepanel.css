@@ -1,0 +1,7 @@
+body { width: auto; min-width: 260px; max-width: 850px; margin: auto; padding: 16px; }
+nav button { padding: 9px 5px; }
+#question { height: 90px; font: inherit; }
+#history p { white-space: pre-wrap; }
+.answer-grounded { border-left: 4px solid #21614e; }
+.answer-ungrounded { border-left: 4px solid #bd7419; }
+#clear-history { margin-top: 12px; }
