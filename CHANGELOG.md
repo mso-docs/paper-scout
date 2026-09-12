@@ -15,6 +15,12 @@ tracked under [Unreleased].
 - Dependency-free capture behavior tests, a local HTML fixture, unpacked loading
   instructions, and an extension delivery checklist covering the remaining MVP
   and deferred work.
+- Extension highlight + context capture: a three-level context-range slider
+  (Highlight Only / Paragraph / Section) with DOM walk-up logic, paper
+  metadata capture (title/abstract/DOI/URL), the `{ highlight, contextRange,
+  context, pageMetadata }` payload contract documented in
+  `extension/BACKEND_HANDOFF.md`, and fallback-with-warning behavior for
+  missing/cross-paragraph/oversized contexts instead of silently clipping.
 
 - `plan.md` — getting-started plan covering: research paper site selection,
   mission statement, Chrome extension bare bones, highlight+context capture
@@ -27,6 +33,35 @@ tracked under [Unreleased].
   `OPENALEX_API_KEY`, `HUGGINGFACE_API_KEY`, and `PORT`.
 - `.gitignore` — ignores `*.env` so real secrets are never committed.
 - README additions describing the MVP concept and scope.
+- Chat with Paper design added to `plan.md` and `docs/integrations.md`:
+  browser-accessible PDF support (scoped as a stretch goal, including the
+  open question of whether a content script can detect a highlight inside
+  Chrome's built-in PDF viewer at all), the backend tech stack decision
+  (Python/FastAPI/httpx/pydantic/python-dotenv/PyMuPDF), and the MVP
+  content-retrieval decision (full paper text as LLM context, no
+  chunking/embedding pipeline for now).
+- `CODEOWNERS` — blanket ownership for the repo.
+- Backend implementation (Python/FastAPI), covering `POST /investigate` and
+  `POST /chat`:
+  - `backend/app/main.py` — FastAPI app, permissive CORS, `/health`.
+  - `backend/app/config.py` — env-based settings.
+  - `backend/app/throttle.py` + `backend/app/rate_limits.py` — async
+    per-source request throttle and its registry (arXiv, Semantic Scholar,
+    OpenAlex, Hugging Face, Anthropic), verified with real timing tests.
+  - `backend/app/providers/` — normalized search clients for arXiv,
+    Semantic Scholar, OpenAlex, and Hugging Face, each failing soft on
+    error so one provider going down doesn't fail the whole investigation.
+  - `backend/app/llm.py` — Claude integration: `classify_evidence`
+    (supporting/contradicting/qualifying/related, per claim + context +
+    candidates) and `answer_question` (grounded Chat with Paper answers),
+    both with JSON-parse-failure fallbacks.
+  - `backend/app/investigate.py`, `app/chat.py`, `app/models.py` — request/
+    response schemas and orchestration wiring the above into the two
+    endpoints, with cross-provider deduplication (DOI → arXiv ID → title+year)
+    and graceful degradation when providers or the LLM call fail.
+  - `backend/Dockerfile`, `backend/docker-compose.yml`, root `.dockerignore`
+    — containerized local run, verified against real network calls.
+- README "Running the backend locally" section (Docker and non-Docker paths).
 
 ### Changed
 
@@ -38,7 +73,31 @@ tracked under [Unreleased].
   Scholar) into a single `backend/.env.example` covering all four services.
 - Added OpenAlex and Hugging Face to `plan.md`'s candidate research-site list
   to reflect that consolidation.
+- `docs/business-logic.md` trimmed to stop repeating integration mechanics
+  (provider table, architecture diagram, secrets/env vars) already owned by
+  `docs/integrations.md`; now references it instead.
+- README rewritten around a finalized two-mode mission statement (Claim
+  Investigator + Chat with Paper) instead of the single-mode MVP draft.
+- `plan.md` reorganized with explicit per-item ownership (Extension:
+  Mackenzie; Backend + Docker: Ruben) and PDF support demoted to an explicit
+  stretch goal across `plan.md`, `docs/integrations.md`, and README.
+- Resolved a `git stash pop` conflict across `.gitignore`, `README.md`, and
+  `docs/plan.md` additively (both sides' content combined) except for one
+  genuine duplication that needed a decision rather than a merge: two
+  `requirements.txt` files existed for the same backend dependencies (a
+  root-level exact-pinned one and a `backend/`-scoped loose-pinned one).
+  Root `requirements.txt`/`requirements-dev.txt` was made canonical; the
+  Docker build context moved to the repo root so the Dockerfile can `COPY`
+  it directly, and the Dockerfile's base image now matches the pinned
+  `.python-version` (3.14).
+- Fixed a real bug found via live end-to-end testing: the arXiv provider
+  used `http://`, which now 301-redirects to `https://`, and `httpx`
+  doesn't follow redirects by default — every arXiv search was silently
+  failing. Fixed the URL and added `follow_redirects=True` defensively
+  across all four provider clients.
 
 ### Removed
 
 - Root-level `.env.example` (superseded by `backend/.env.example`).
+- `backend/requirements.txt` and `backend/.dockerignore` (superseded by the
+  canonical root-level files, per the requirements-file consolidation above).

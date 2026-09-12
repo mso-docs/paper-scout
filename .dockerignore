@@ -1,0 +1,23 @@
+# Backend Docker build context is the repo root (see backend/docker-compose.yml).
+# Keep the build context lean and never bake secrets into the image.
+
+.git/
+.gitignore
+
+*.env
+.venv/
+venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+extension/
+docs/
+*.md
+LICENSE

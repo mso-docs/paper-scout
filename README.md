@@ -45,7 +45,7 @@ Browser-accessible PDF support is a stretch goal if time and implementation comp
 
 ## Status
 
-Steps 3–4 provide HTML page and highlighted-claim capture in a toolbar popup, with a three-level context slider and paper metadata preview. The existing connection UI awaits integration with Ruben's backend; sidebar results, PDFs, and paper chat remain planned. See [`docs/plan.md`](docs/plan.md) and the [extension MVP checklist](docs/extension.md) for remaining work, [`docs/business-logic.md`](docs/business-logic.md) for product behavior, and [`docs/integrations.md`](docs/integrations.md) for backend details.
+Steps 3–4 provide HTML page and highlighted-claim capture in a toolbar popup, with a three-level context slider and paper metadata preview. The backend (`POST /investigate`, `POST /chat`) is implemented, covering scholarly search + evidence classification and grounded paper Q&A. The existing connection UI awaits integration with the backend; sidebar results and end-to-end wiring between the two remain planned. See [`docs/plan.md`](docs/plan.md) and the [extension MVP checklist](docs/extension.md) for remaining extension work, [`docs/business-logic.md`](docs/business-logic.md) for product behavior, and [`docs/integrations.md`](docs/integrations.md) for backend details.
 
 ## Getting started
 
@@ -140,6 +140,22 @@ Captures stay in the popup until it closes. Capture and slider changes send noth
 After editing extension files, click **Reload** on its card in `chrome://extensions`, then reopen the popup. For debugging, right-click the popup and choose **Inspect**, or check the extension card's **Errors** panel.
 
 Run `node --test extension/tests/*.test.cjs extension/tests/*.test.mjs` with Node.js 20+ for automated checks. See [verification instructions](docs/extension.md#verification) for a local test page and real-page smoke checks.
+
+## Running the backend locally
+
+1. Copy `backend/.env.example` to `backend/.env` and fill in `ANTHROPIC_API_KEY` (required) and any optional provider keys (`SEMANTIC_SCHOLAR_API_KEY`, `OPENALEX_API_KEY`, `HUGGINGFACE_API_KEY`).
+2. With Docker:
+   ```
+   cd backend
+   docker compose up --build
+   ```
+3. Without Docker: set up the shared virtual environment from "Getting started" above (repo-root `.venv`, `requirements.txt`), then run the server from inside `backend/`:
+   ```
+   source .venv/bin/activate   # from the repo root; .\.venv\Scripts\activate on Windows
+   cd backend
+   uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
+   ```
+4. Check it's up: `curl http://localhost:8787/health` → `{"status": "ok"}`.
 
 ## License
 

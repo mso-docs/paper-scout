@@ -125,13 +125,18 @@ far below a flat 100-200 req/sec and vary a lot by service:
 
 - [ ] Add a rate-limit slider to the settings UI: range **1–60 requests/min**,
       default **20 requests/min** (~0.33 req/sec, matched to arXiv's limit as
-      the most restrictive dependency)
-- [ ] Implement a request throttle/queue in the agent so it waits between
-      requests according to the configured rate
-- [ ] Make the configured rate limit apply per outgoing API call, not just at
-      the start of an investigation
-- [ ] Test that the throttle actually delays requests as expected at both
-      ends of the slider
+      the most restrictive dependency) — UI slider itself is an Extension
+      task, not yet built; the backend throttle below doesn't need a slider
+      to function, it just isn't user-configurable yet
+- [x] Implement a request throttle/queue in the agent so it waits between
+      requests according to the configured rate (`backend/app/throttle.py`)
+- [x] Make the configured rate limit apply per outgoing API call, not just at
+      the start of an investigation — every provider/LLM call does
+      `await throttle(source)` individually, not once per investigation
+- [x] Test that the throttle actually delays requests as expected — verified
+      with real timing: 5 sequential `throttle("arxiv")` calls measured
+      ~3.003s apart (expected 3.000s), and concurrent callers to the same
+      source correctly serialize instead of racing past each other
 
 ## 6. Per-source rate-limit registry
 
@@ -142,17 +147,18 @@ throttling can't be one hardcoded number baked into the request code. Track
 limits in a single config/registry that the shared throttle reads from,
 instead of scattering rate-limit logic across each integration.
 
-- [ ] Create a `rateLimits` config (e.g. `rateLimits.json` or a small module)
-      with one entry per source, normalized as `{ requests, intervalMs }`
-      (handles per-second, per-minute, whatever the source publishes)
-- [ ] Seed it with the sources already researched: arXiv (`1 / 3000ms`),
-      Semantic Scholar (`1 / 1000ms`), Claude API (`50 / 60000ms`, Tier 1)
-- [ ] Point the shared throttle/queue (item 5) at this registry, keyed by
+- [x] Create a `rateLimits` config with one entry per source, normalized as
+      `{ requests, interval_ms }` (`backend/app/rate_limits.py`)
+- [x] Seed it with arXiv (`1 / 3000ms`), Semantic Scholar (`1 / 1000ms`),
+      OpenAlex (`10 / 1000ms`, polite pool), Hugging Face (`10 / 10000ms`),
+      and Claude API (`50 / 60000ms`, Tier 1)
+- [x] Point the shared throttle/queue (item 5) at this registry, keyed by
       source name, instead of using a single global rate
-- [ ] Document the process for adding a new source: look up its published
-      rate limit, add one entry to the registry — no throttle code changes
-      needed
-- [ ] Revisit/add entries whenever item 1's site list changes
+- [x] Document the process for adding a new source (module docstring in
+      `rate_limits.py`: look up the limit, add one entry — no throttle code
+      changes needed)
+- [ ] Revisit/add entries whenever item 1's site list changes (ongoing —
+      not a one-time task)
 
 ## 7. Backend agent pipeline
 
@@ -162,17 +168,30 @@ The actual core of the product: turn a captured claim + context into a
 supporting/conflicting evidence summary. This is the piece none of the
 earlier items build yet.
 
-- [ ] Stand up the backend service (Python/FastAPI — see item 11) that
-      accepts `{ highlight, contextRange, context, pageMetadata }`
-- [ ] Turn the claim into one or more search queries
-- [ ] Call the paper-search API(s) chosen from item 1, through the throttle/
-      registry built in items 5-6
-- [ ] Call an LLM (Claude API) with the claim + retrieved abstracts, asking
-      it to sort results into supporting / conflicting / unclear
-- [ ] Generate a concise summary with links back to each source
-- [ ] Define the response shape sent back to the extension: `{ summary,
-      supporting: [...], conflicting: [...] }`
-- [ ] Handle empty/low-quality search results gracefully (no evidence found)
+- [x] Stand up the backend service (Python/FastAPI — see item 11); `POST
+      /investigate` accepts `{ highlight, context_range, context,
+      page_metadata }` (`backend/app/main.py`, `app/investigate.py`)
+- [x] Turn the claim into one or more search queries — **MVP
+      simplification**: uses the highlighted text itself as a single query
+      across all providers, rather than generating separate support/
+      contradiction/qualification queries per business-logic.md §3. Claude
+      still does the real classification work once results come back;
+      multi-intent query generation is a documented upgrade path, not
+      required for a working prototype
+- [x] Call the paper-search API(s) chosen from item 1 (arXiv, Semantic
+      Scholar, OpenAlex, Hugging Face — run concurrently via
+      `asyncio.gather`), through the throttle/registry built in items 5-6
+- [x] Call an LLM (Claude API) with the claim + retrieved abstracts, asking
+      it to sort results into supporting / contradicting / qualifying /
+      related (`backend/app/llm.py::classify_evidence`)
+- [x] Generate a concise summary with links back to each source
+- [x] Define the response shape sent back to the extension: `{ summary,
+      supporting, contradicting, qualifying, related }`
+      (`backend/app/models.py`)
+- [x] Handle empty/low-quality search results gracefully (no evidence
+      found) — verified live: with every provider failing (rate-limited/
+      unauthenticated in testing) the endpoint still returns `200` with a
+      "temporarily unavailable" summary instead of crashing
 
 ## 8. Sidebar UI
 
@@ -212,16 +231,20 @@ Make the backend (item 7) runnable locally with one command, so anyone on
 the team (or judges) can stand it up without configuring a local environment
 by hand.
 
-- [ ] Write a `Dockerfile` for the backend service
-- [ ] Write a `docker-compose.yml` (or equivalent) covering env vars for API
-      keys (Claude API, Semantic Scholar, etc.) via a `.env` file
-- [ ] Expose the backend on a fixed local port the extension can call (e.g.
-      `http://localhost:8787`)
+- [x] Write a `Dockerfile` for the backend service
+- [x] Write a `docker-compose.yml` covering env vars via `env_file: .env`
+- [x] Expose the backend on a fixed local port the extension can call
+      (`8787`)
 - [x] Add a `.env.example` documenting required environment variables
       (`backend/.env.example`)
-- [ ] Document the run process in README: `docker compose up` (or `docker
-      build` + `docker run`) to get the backend running locally
-- [ ] Verify the extension can talk to the containerized backend end-to-end
+- [x] Document the run process in README
+- [ ] Verify the extension can talk to the containerized backend
+      end-to-end — **not verified**: this sandbox has no `docker` binary,
+      so `docker build`/`docker compose up` couldn't actually be run here,
+      and the extension doesn't exist yet either. The backend itself *was*
+      verified running directly (venv + uvicorn) with real `/health`,
+      `/investigate`, and `/chat` calls — someone with Docker and the
+      extension needs to confirm the containerized path specifically
 
 ## 11. Backend tech stack
 
@@ -231,20 +254,24 @@ Decision: **Python**, so the same language handles API orchestration, PDF
 text extraction, and LLM calls without a second runtime.
 
 - [x] Language: Python
-- [ ] Web framework: **FastAPI** — async support matters here since the
-      backend fans out to multiple rate-limited external APIs (item 6);
-      also gets request/response validation and OpenAPI docs for free
-- [ ] HTTP client: **httpx** (async, so calls to arXiv/Semantic Scholar/
+- [x] Web framework: **FastAPI** — verified running (`GET /health`,
+      `POST /investigate`, `POST /chat` all confirmed live)
+- [x] HTTP client: **httpx** (async, so calls to arXiv/Semantic Scholar/
       OpenAlex/Hugging Face/Claude don't block each other or the throttle
       queue from item 5)
-- [ ] Schema/validation: **pydantic** for the request/response shapes
+- [x] Schema/validation: **pydantic** for the request/response shapes
       defined in items 4, 7, and 13
-- [ ] Env loading: **python-dotenv**, reading `backend/.env` (see
+- [x] Env loading: **python-dotenv**, reading `backend/.env` (see
       `backend/.env.example`)
 - [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12 (stretch
       goal; not needed for the initial prototype)
 - [x] Set up root `requirements.txt` and `requirements-dev.txt` pinning the
       agreed runtime and development packages (PDF dependencies deferred)
+- [x] Set up `backend/requirements.txt` pinning these
+- [x] **Resolved:** root `requirements.txt`/`requirements-dev.txt` is
+      canonical. Deleted `backend/requirements.txt`; the Dockerfile's build
+      context is now the repo root (`backend/docker-compose.yml`) so it can
+      `COPY` the root `requirements.txt` directly.
 - [x] Confirm this stack in `docs/integrations.md` (Backend Tech Stack
       section) so it isn't re-decided later
 
@@ -288,19 +315,26 @@ retrieve content → interpret question → retrieve relevant context →
 generate grounded answer). Prototype targets HTML pages only — see item 12
 for PDF, deferred as a stretch goal.
 
-- [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata)
-- [ ] Retrieve paper content: DOM text for HTML pages (PDF extraction is
-      the item 12 stretch goal, not required for the prototype)
+- [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata) —
+      this is fundamentally an Extension/DOM task (item 4); the backend
+      just accepts whatever `page_metadata` the extension already
+      identified, it doesn't detect anything itself
+- [ ] Retrieve paper content: DOM text for HTML pages — same as above, this
+      is the Extension's job (item 4's capture logic); the backend receives
+      `page_content` as a plain string, it doesn't scrape anything
 - [x] Decide the MVP context-retrieval approach: **send the full extracted
       paper text directly as LLM context** rather than building a chunking/
       embedding/vector-search pipeline — Claude's context window comfortably
       fits a full paper, and this avoids scope a hackathon MVP doesn't need
 - [x] Note the upgrade path (chunk + embed + vector search) for later, if a
       paper's text ever exceeds the context window
-- [ ] Call the LLM with the question + full paper text, instructed to
+- [x] Call the LLM with the question + full paper text, instructed to
       answer only from that content and say so if the answer isn't present
-- [x] Define the request/response shape: `{ question, pageContent,
-      pageMetadata }` → `{ answer, grounded: bool }`
+      (`backend/app/llm.py::answer_question`, wired via `app/chat.py` and
+      `POST /chat` — verified live, degrades to a clean non-crashing
+      response when the LLM call itself fails)
+- [x] Define the request/response shape: `{ question, page_content,
+      page_metadata }` → `{ answer, grounded: bool }`
 
 ## 14. Chat with Paper: sidebar UI
 
