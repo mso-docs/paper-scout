@@ -4,9 +4,10 @@ const { readFileSync } = require("node:fs");
 const vm = require("node:vm");
 const content = readFileSync(`${__dirname}/../content.js`, "utf8");
 
-function scrape({ heading = null, title = "Paper title", type = "text/html", highlight = "", paragraph = null, section = null, div = null, editable = false, metadata = {}, abstract = null, url = "https://example.org/paper" } = {}) {
+function scrape({ heading = null, title = "Paper title", type = "text/html", highlight = "", paragraph = null, abstractBlock = null, abstractHasParagraphs = false, section = null, div = null, editable = false, metadata = {}, abstract = null, url = "https://example.org/paper" } = {}) {
   const common = { nodeType: 1, closest: selector => {
-    if (selector === "p") return paragraph === null ? null : { innerText: paragraph };
+    if (selector === "p, .ltx_p") return paragraph === null ? null : { innerText: paragraph };
+    if (selector === "blockquote.abstract") return abstractBlock === null ? null : { innerText: abstractBlock, querySelector: () => abstractHasParagraphs ? {} : null };
     if (selector === "section") return section === null ? null : { innerText: section };
     if (selector === "div") return div === null ? null : { innerText: div };
     return editable ? {} : null;
@@ -61,4 +62,13 @@ test("abstract metadata excludes generic site descriptions and reads paper abstr
   assert.equal(scrape({ metadata: { description: "Search millions of papers" } }).pageMetadata.abstract, null);
   assert.equal(scrape({ abstract: "Abstract:  Actual paper findings. " }).pageMetadata.abstract, "Actual paper findings.");
   assert.equal(scrape({ metadata: { citation_abstract: "Published abstract" }, abstract: "Other text" }).pageMetadata.abstract, "Published abstract");
+});
+
+test("arXiv abstract block is paragraph context unless it spans real paragraphs", () => {
+  const c = scrape({ highlight: "the degradation reflects general image legibility", abstractBlock: "Earlier findings. the degradation reflects general image legibility rather than fine-grained discrimination failure. Later findings." });
+  assert.equal(c.contexts.paragraph.effectiveRange, "paragraph");
+  assert.equal(c.contexts.paragraph.warning, null);
+  assert.match(c.contexts.paragraph.text, /Earlier findings/);
+  assert.equal(scrape({ highlight: "Claim", abstractBlock: "Claim", abstractHasParagraphs: true }).contexts.paragraph.effectiveRange, "highlight");
+  assert.match(scrape({ highlight: "Claim", abstractBlock: "Claim" + "x".repeat(24000) }).contexts.paragraph.warning, /exceeds/);
 });

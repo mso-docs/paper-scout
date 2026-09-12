@@ -45,8 +45,13 @@
   capture.highlight = highlight;
   capture.contexts.highlight = { text: highlight, effectiveRange: "highlight", warning: null };
   const common = element(range.commonAncestorContainer);
+  // arXiv abstract pages use a single blockquote instead of a <p>.
+  // Do not treat a container spanning multiple real paragraphs as one paragraph.
+  const abstractBlock = common?.closest("blockquote.abstract");
+  const paragraph = common?.closest("p, .ltx_p") ||
+    (abstractBlock && !abstractBlock.querySelector("p, .ltx_p") ? abstractBlock : null);
   for (const [name, ancestor] of [
-    ["paragraph", common?.closest("p")],
+    ["paragraph", paragraph],
     ["section", common?.closest("section") || common?.closest("div")],
   ]) {
     const text = normalize(ancestor?.innerText);

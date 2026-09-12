@@ -1,20 +1,19 @@
 # Ruben: backend handoff for the extension
 
-Status (0.3.0): the sidebar is integrated with the **existing** `/investigate`
-and `/chat` backend via `backend-api.mjs`. Investigation sends
-`{ highlight, context_range, context, page_metadata }` and reads
-`{ summary, supporting, contradicting, qualifying, related }` with
-`{ title, url, why }` evidence items. Chat sends
-`{ question, page_content, page_metadata }` and validates `{ answer, grounded }`.
-History is display-only; each question is independent. Chat rejects pages above
-200,000 characters without truncation. Missing/unsafe evidence URLs render as
-plain titles. The backend's generic chat failure is displayed as an error, not
-as an unsupported-paper finding. Custom AI settings are rejected by the sidebar
-because this backend does not implement them.
+Status: both the popup and sidebar use `/v1/investigations`; the sidebar also
+calls `/v1/chat`. These are the running backend’s implemented routes. Both
+requests include `schemaVersion: "1.0"` and camelCase fields. Chat sends
+`{ schemaVersion, question, pageContent, pageMetadata }` and reads
+`{ schemaVersion, answer, grounded, warnings }`. Investigation uses the
+versioned claim payload and `supports` / `contradicts` / `qualifies` / `related`
+evidence with `{ title, url, explanation }`. See `backend-api.mjs` for sidebar
+validation and display adaptation. Backend warnings are displayed.
 
-The remainder records the **legacy popup's proposed API v1.0 contract**,
-implemented by that client and its local test double. This document does **not** assert that the real backend has
-these endpoints. No backend or Docker files were changed for this milestone.
+History remains display-only; each question is independent. Pages above
+200,000 characters are rejected without truncation. Custom AI settings are
+rejected by the sidebar because the backend does not support them. Missing
+backend-host permission expands Connection settings; Save connection requests
+Chrome access even when the URL was already populated.
 
 ## Ownership and delivery order
 

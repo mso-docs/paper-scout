@@ -45,7 +45,7 @@ Browser-accessible PDF support is a stretch goal if time and implementation comp
 
 ## Status
 
-Steps 3–4 provide HTML claim capture and metadata in the toolbar popup. Steps 8, 14, and 15 add a shared Investigate / Chat with Paper sidebar wired to the implemented backend (`POST /investigate`, `POST /chat`). Open **Open sidebar / Chat with Paper** from the popup, save the backend connection, then capture a claim or ask a question without highlighting. Sidebar behavior is verified in Chromium; the live arXiv-to-backend request worked, but successful live AI verification awaits valid Anthropic credentials (the current configuration returned 401). The Step 9 context-menu trigger remains planned. See [`docs/plan.md`](docs/plan.md) and [extension documentation](extension/README.md).
+Steps 3–4 provide HTML claim capture and metadata in the toolbar popup. Steps 8, 14, and 15 add a shared Investigate / Chat with Paper sidebar wired to the implemented backend (`POST /v1/investigations`, `POST /v1/chat`). Open **Open sidebar / Chat with Paper** from the popup, save the backend connection, then capture a claim or ask a question without highlighting. Sidebar behavior is verified in Chromium; the live arXiv-to-backend request worked, but successful live AI verification awaits valid Anthropic credentials (the current configuration returned 401). The Step 9 context-menu trigger remains planned. See [`docs/plan.md`](docs/plan.md) and [extension documentation](extension/README.md).
 
 ## Getting started
 

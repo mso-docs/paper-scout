@@ -52,7 +52,16 @@ async function run(label, task) {
   busy = true; controller = new AbortController(); const signal = controller.signal; const version = generation;
   actions(); message(label);
   try { connection = await loadSettings(); await task(signal); if (version === generation) message('Complete.'); }
-  catch (error) { if (version === generation) message(signal.aborted ? 'Request cancelled.' : error.message, true); }
+  catch (error) {
+    if (version === generation) {
+      message(signal.aborted ? 'Request cancelled.' : error.message, true);
+      if (error.message.includes('save the connection')) {
+        $('connection-form').closest('details').open = true;
+        $('connection-status').textContent = 'Click Save connection and accept Chrome’s backend access prompt.';
+        $('save-connection').focus();
+      }
+    }
+  }
   finally { busy = false; controller = null; actions(); }
 }
 for (const mode of ['investigate', 'chat']) $(`mode-${mode}`).addEventListener('click', () => {
@@ -68,10 +77,11 @@ $('range').addEventListener('change', () => { preview(); saveContextRange($('ran
 async function investigate(signal) {
   $('evidence').hidden = true;
   const tab = source; await assertSource(tab);
-  const data = validateEvidence(await backendRequest('/investigate', connection, { payload: investigationPayload(capture, $('range').value), signal }));
+  const data = validateEvidence(await backendRequest('/v1/investigations', connection, { payload: investigationPayload(capture, $('range').value), signal }));
   await assertSource(tab); signal.throwIfAborted();
   const container = $('evidence'); container.replaceChildren();
   add(container, 'h2', 'Investigation'); add(container, 'p', data.summary);
+  for (const warning of data.warnings) add(container, 'p', warning, 'warning');
   if (['supporting', 'contradicting', 'qualifying', 'related'].every(key => !data[key].length)) add(container, 'p', 'No evidence returned. This does not establish whether the claim is true.', 'warning');
   for (const [key, label] of [['supporting', 'Supporting'], ['contradicting', 'Conflicting'], ['qualifying', 'Qualifying'], ['related', 'Related']]) {
     add(container, 'h3', label);
@@ -97,11 +107,12 @@ $('chat-form').addEventListener('submit', event => {
     if (paper.url !== tab.url || metadata.pageMetadata.url !== tab.url) throw new Error('The source page changed. Submit again.');
     if (source && (source.id !== tab.id || source.url !== tab.url)) $('history').replaceChildren();
     setSource(tab, metadata.pageMetadata);
-    const data = validateChat(await backendRequest('/chat', connection, { payload: { question, page_content: paper.pageContent, page_metadata: metadata.pageMetadata }, signal }));
+    const data = validateChat(await backendRequest('/v1/chat', connection, { payload: { schemaVersion: '1.0', question, pageContent: paper.pageContent, pageMetadata: metadata.pageMetadata }, signal }));
     await assertSource(tab); signal.throwIfAborted();
     const entry = add($('history'), 'article', '', `card answer-${data.grounded ? 'grounded' : 'ungrounded'}`);
     add(entry, 'h3', 'You'); add(entry, 'p', question);
     add(entry, 'h3', data.grounded ? 'Grounded in this paper' : 'Not established by this paper'); add(entry, 'p', data.answer);
+    for (const warning of data.warnings) add(entry, 'p', warning, 'warning');
     $('question').value = ''; entry.scrollIntoView({ block: 'nearest' });
   });
 });

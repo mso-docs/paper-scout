@@ -141,7 +141,7 @@ try {
   await writeFile(join(tmpdir(), 'paper-scout-capture.png'), Buffer.from(captureShot.data, 'base64'));
   if (process.argv.includes('--real-papers')) {
     const contentScript = await readFile(join(extension, 'content.js'), 'utf8');
-    for (const url of ['https://arxiv.org/abs/1706.03762', 'https://arxiv.org/html/2401.04088v1']) {
+    for (const url of ['https://arxiv.org/abs/1706.03762', 'https://arxiv.org/abs/2609.11916', 'https://arxiv.org/html/2401.04088v1']) {
       const paperTarget = (await call('Target.createTarget', { url })).targetId;
       const paper = await attach(paperTarget);
       await waitFor(paper, "!!document.querySelector('blockquote.abstract, .ltx_abstract')");
@@ -160,6 +160,9 @@ try {
       assert.ok(capture.pageMetadata.abstract?.length > 100);
       assert.ok(capture.pageMetadata.arxivId);
       assert.ok(capture.highlight);
+      assert.equal(capture.contexts.paragraph.effectiveRange, 'paragraph');
+      assert.equal(capture.contexts.paragraph.warning, null);
+      assert.ok(capture.contexts.paragraph.text.length > capture.highlight.length);
       for (const [level, context] of Object.entries(capture.contexts)) {
         assert.ok(context.text.includes(capture.highlight), `${url}: ${level} preserves highlight`);
         assert.ok(context.text.length <= 24000);

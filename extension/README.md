@@ -9,14 +9,14 @@ Load `extension/` unpacked in Chrome/Chromium 116+; no build is required.
 4. For Investigate, highlight a passage, click **Capture current selection**,
    choose Highlight only / Paragraph / Section, review context, and investigate.
 5. For Chat with Paper, enter a question and submit. The sidebar captures the
-   current page and sends it to `/chat`, then labels the answer as grounded or
+   current page and sends it to `/v1/chat`, then labels the answer as grounded or
    not established by the paper. Backend failures appear separately as errors.
 
 Start the backend using the root README instructions and configure its
-`ANTHROPIC_API_KEY`. The sidebar uses `/investigate` and `/chat` with snake_case
-fields, matching `backend/app/models.py`. The original capture/settings popup
-remains available and retains its proposed `/v1/investigations` contract; use
-the sidebar to investigate with this repository’s backend. Custom AI settings
+`ANTHROPIC_API_KEY`. The sidebar uses `/v1/investigations` and `/v1/chat` with versioned camelCase
+fields, matching `backend/app/models.py`. The capture/settings popup and sidebar now use the same versioned backend
+API. Save connection and accept Chrome’s host prompt before submitting; merely
+filling in a URL does not grant access. Custom AI settings
 are unsupported by this backend and are rejected by the sidebar; disable them
 in popup Settings. Backend tokens and connection preferences are shared.
 
@@ -62,7 +62,7 @@ node extension/tests/sidebar-smoke.mjs --real-backend
 ```
 
 This loads the live arXiv Mixtral of Experts HTML paper and calls the real AI
-through `/chat`. On 2026-09-12, extraction and FastAPI transport worked, but
+through `/v1/chat`. On 2026-09-12, extraction and FastAPI transport worked, but
 Anthropic returned 401 with the available configuration. Successful live-answer
 acceptance remains unchecked in the plan. The fixture-based browser checks
 verify both answer types independently of provider availability.

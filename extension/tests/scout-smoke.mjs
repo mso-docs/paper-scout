@@ -15,13 +15,13 @@ const fixture = await readFile(new URL('./fixture.html', import.meta.url));
 let received, responseMode = 'success';
 const server = createServer(async (req, res) => {
   if (req.url === '/health') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ status: 'ok', apiVersion: '1.0' })); return; }
-  if (req.url === '/investigate') {
+  if (req.url === '/v1/investigations') {
     let body = ''; for await (const chunk of req) body += chunk;
     received = { body: JSON.parse(body), authorization: req.headers.authorization };
     res.setHeader('Content-Type', 'application/json');
     if (responseMode === 'auth-error') { res.writeHead(401); res.end(JSON.stringify({ error: { message: 'DO NOT DISPLAY SECRET' } })); return; }
     if (responseMode === 'slow') { req.socket.on('close', () => res.destroy()); return; }
-    res.end(JSON.stringify({ summary: 'Fixture evidence only', supporting: [{title:'Test source',url:'https://example.org',why:'Test evidence'}], contradicting:[], qualifying:[], related:[] })); return;
+    res.end(JSON.stringify({ schemaVersion: '1.0', status: 'complete', warnings: [], summary: 'Fixture evidence only', supports: [{title:'Test source',url:'https://example.org',explanation:'Test evidence'}], contradicts:[], qualifies:[], related:[] })); return;
   }
   res.setHeader('Content-Type', 'text/html'); res.end(fixture);
 });
@@ -112,8 +112,8 @@ try {
   console.log('PASS selection → saved section context → real sidebar → /investigate → evidence');
   console.log(await evaluate(sidebar, "document.querySelector('#evidence').textContent"));
   if (!process.argv.includes('--real-backend')) {
-    assert.equal(received.body.context_range, 'section');
-    assert.equal(received.body.page_metadata.url, paperUrl);
+    assert.equal(received.body.contextRange, 'section');
+    assert.equal(received.body.pageMetadata.url, paperUrl);
     assert.ok(received.body.context.includes(selected));
     responseMode = 'auth-error';
     await evaluate(ui, `import('./background.mjs').then(m => m.scoutSelection({selectionText:${JSON.stringify(selected)}, pageUrl:${JSON.stringify(paperUrl)}, frameId:0}, ${JSON.stringify(sourceTab)}, chrome.sidePanel.open({tabId:${sourceTab.id}})))`);

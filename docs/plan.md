@@ -101,7 +101,8 @@ the cost of analyzing an entire paper.
 - [x] Test against a couple of real paper pages to confirm each range level
       produces sane, non-misleading context
       (2026-09-12: arXiv Attention Is All You Need abstract and Mixtral of Experts HTML;
-      all three ranges preserve the claim, with explicit paragraph fallback on the abstract page)
+      all three ranges preserve the claim; paragraph capture now also recognizes
+      single-block arXiv abstracts, verified on reported page 2609.11916)
 
 The existing versioned extension payload remains unchanged; see
 [`extension/BACKEND_HANDOFF.md`](../extension/BACKEND_HANDOFF.md). This records
@@ -188,7 +189,7 @@ earlier items build yet.
 - [x] Define the response shape sent back to the extension — **superseded
       by `extension/BACKEND_HANDOFF.md`'s already-implemented client
       contract**, not the draft originally sketched here. Actual endpoint
-      is `POST /v1/investigations` (not `/investigate`), request/response
+      is `POST /v1/investigations` (not `/v1/investigations`), request/response
       use camelCase with a `schemaVersion` and `capture` wrapper, and the
       response is `{ schemaVersion, status, summary, supports,
       contradicts, qualifies, related, warnings }` (note: `supports`/
@@ -221,7 +222,7 @@ a browser sidebar, not just a popup.
 Implemented in `extension/sidepanel.html` using Chrome’s Side Panel API
 (Chrome 116+). Open it from the toolbar popup; capture a selection and choose
 its context before investigating. The sidebar uses the backend’s implemented
-`/investigate` route and snake_case contract. Step 9’s context menu remains
+`/v1/investigations` route and versioned camelCase contract. Step 9’s context menu remains
 separate work.
 
 ## 9. End-to-end wiring: "Scout this claim" trigger
@@ -241,7 +242,7 @@ result, matching the README's MVP flow.
       end-to-end
 
 Verified 2026-09-12 with Chromium on the live Mixtral of Experts arXiv HTML
-page and the running FastAPI `/investigate` endpoint. The sidebar displayed the
+page and the running FastAPI `/v1/investigations` endpoint. The sidebar displayed the
 backend's classification-unavailable fallback; successful evidence rendering was
 verified separately with a local API double. Browser automation invokes the menu
 handler with a real selection and user gesture (native context-menu clicking and
@@ -398,7 +399,7 @@ callable)**
       end-to-end (PDF: stretch goal, see item 12)
 
 Implementation is complete. Verification on 2026-09-12 captured the live
-Mixtral of Experts HTML paper, posted to the actual FastAPI `/chat` endpoint,
+Mixtral of Experts HTML paper, posted to the actual FastAPI `/v1/chat` endpoint,
 and displayed the backend failure correctly. A successful live AI answer is
 blocked by Anthropic `401 Unauthorized` with the available configuration; the
 final acceptance checkbox remains open until valid backend credentials are

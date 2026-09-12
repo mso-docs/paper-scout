@@ -14,14 +14,14 @@ const profile = await mkdtemp(join(tmpdir(), 'paper-scout-smoke-'));
 const fixture = await readFile(new URL('./fixture.html', import.meta.url));
 let received, responseMode = 'success';
 const server = createServer(async (req, res) => {
-  if (req.url === '/chat' || req.url === '/investigate') {
+  if (req.url === '/v1/chat' || req.url === '/v1/investigations') {
     let body = ''; for await (const chunk of req) body += chunk;
     received = { path: req.url, body: JSON.parse(body) };
     res.setHeader('Content-Type', 'application/json');
     if (responseMode === 'slow') { req.socket.on('close', () => res.destroy()); return; }
     if (responseMode === 'error') { res.writeHead(503); res.end('{}'); return; }
-    if (req.url === '/chat') res.end(JSON.stringify({ answer: responseMode === 'ungrounded' ? 'This is not stated in the paper.' : '<img src=x> The trial improved recall.', grounded: responseMode !== 'ungrounded' }));
-    else res.end(JSON.stringify({ summary: 'Fixture evidence.', supporting: responseMode === 'empty' ? [] : [{ title: '<img src=x>', url: 'https://example.org/source', why: 'Supports recall.' }, { title: 'Unsafe link', url: 'javascript:alert(1)', why: 'No clickable URL.' }], contradicting: [], qualifying: [], related: [] }));
+    if (req.url === '/v1/chat') res.end(JSON.stringify({ schemaVersion: '1.0', warnings: [], answer: responseMode === 'ungrounded' ? 'This is not stated in the paper.' : '<img src=x> The trial improved recall.', grounded: responseMode !== 'ungrounded' }));
+    else res.end(JSON.stringify({ schemaVersion: '1.0', status: responseMode === 'empty' ? 'insufficient_evidence' : 'complete', warnings: [], summary: 'Fixture evidence.', supports: responseMode === 'empty' ? [] : [{ title: '<img src=x>', url: 'https://example.org/source', explanation: 'Supports recall.' }, { title: 'Unsafe link', url: 'javascript:alert(1)', explanation: 'No clickable URL.' }], contradicts: [], qualifies: [], related: [] }));
     return;
   }
   res.setHeader('Content-Type', 'text/html'); res.end(fixture);
@@ -92,10 +92,10 @@ try {
   await waitFor(ui, "document.querySelector('#connection-status').textContent.includes('Connection saved')");
   await evaluate(ui, "document.querySelector('#mode-chat').click();document.querySelector('#question').value='What improved?';document.querySelector('#ask').click()");
   await waitFor(ui, "!!document.querySelector('.answer-grounded')");
-  assert.equal(received.path, '/chat');
+  assert.equal(received.path, '/v1/chat');
   assert.equal(received.body.question, 'What improved?');
-  assert.ok(received.body.page_content.includes('the intervention improved recall'));
-  assert.equal(received.body.page_metadata.url, `${base}/fixture.html`);
+  assert.ok(received.body.pageContent.includes('the intervention improved recall'));
+  assert.equal(received.body.pageMetadata.url, `${base}/fixture.html`);
   assert.equal(await evaluate(ui, "document.querySelector('#history img') === null"), true);
   responseMode = 'ungrounded';
   await evaluate(ui, "document.querySelector('#question').value='What is missing?';document.querySelector('#ask').click()");
@@ -118,8 +118,8 @@ try {
   await waitFor(ui, "!document.querySelector('#investigate').disabled");
   await evaluate(ui, "document.querySelector('#investigate').click()");
   await waitFor(ui, "!document.querySelector('#evidence').hidden");
-  assert.equal(received.path, '/investigate');
-  assert.equal(received.body.context_range, 'paragraph');
+  assert.equal(received.path, '/v1/investigations');
+  assert.equal(received.body.contextRange, 'paragraph');
   assert.equal(received.body.highlight, 'the intervention improved recall');
   assert.equal(await evaluate(ui, "document.querySelectorAll('#evidence a').length"), 1);
   assert.equal(await evaluate(ui, "document.querySelector('#evidence img') === null"), true);

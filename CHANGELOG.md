@@ -8,6 +8,23 @@ tracked under [Unreleased].
 
 ## [Unreleased]
 
+### Fixed
+
+- Updated sidebar investigation/chat requests to the running backend’s
+  `/v1/investigations` and `/v1/chat` routes and versioned camelCase payloads,
+  fixing 404s after the backend contract changed. Adapted evidence categories,
+  explanations and warning rendering; updated sidebar/context-menu fixtures.
+- Sidebar permission errors now expand Connection settings with explicit
+  instructions to save and accept Chrome’s backend-host permission prompt.
+
+- Paragraph context now recognizes arXiv’s `blockquote.abstract` and `.ltx_p`
+  markup, fixing highlight-only fallback on abstract pages such as 2609.11916.
+  Abstract containers with multiple real paragraphs still fall back safely;
+  oversized context is never truncated. Added regression coverage and the
+  reported paper to the real-page Chromium checks. Unit tests and Chromium
+  checks passed for 1706.03762, 2609.11916 and Mixtral HTML; refreshed capture
+  documentation to reflect expanded abstract paragraph support.
+
 ### Added
 
 - Chrome Side Panel UI for Steps 8 and 14 with Investigate / Chat with Paper

@@ -1,5 +1,5 @@
 > **0.3.0 update:** The sidebar now implements Steps 8 and 14 and the Step 15
-> chat wiring, using the real `/investigate` and `/chat` routes. See
+> chat wiring, using the real `/v1/investigations` and `/v1/chat` routes. See
 > [current usage and verification](../extension/README.md). Live arXiv HTML
 > capture reached FastAPI, but Anthropic returned 401; successful live chat
 > acceptance remains pending. The older popup proposal below is retained for
@@ -127,8 +127,10 @@ Verified 2026-09-12: all 14 behavior tests and both browser commands passed.
 Live pages were `https://arxiv.org/abs/1706.03762` (Attention Is All You Need)
 and `https://arxiv.org/html/2401.04088v1` (Mixtral of Experts). Both returned
 paper titles, abstracts, arXiv IDs, and intact highlights at all three ranges.
-The abstract page has no enclosing paragraph and correctly warns/falls back;
-the HTML paper provides both paragraph and section context. Broader checks on
+Paragraph capture now recognizes single-block arXiv abstracts as well as `<p>`
+and `.ltx_p` elements. Verified the fix on 1706.03762, the reported abstract
+page 2609.11916, and the Mixtral HTML page; all return expanded paragraph
+context with no fallback warning. Broader checks on
 Semantic Scholar, OpenAlex and Hugging Face remain future provider coverage.
 
 The Chrome host-permission dialog
