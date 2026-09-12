@@ -1,22 +1,21 @@
-import { claimPayload, requestApi } from './api.mjs';
+import { claimPayload, validateInvestigation, requestApi } from './api.mjs';
 
-export function investigationPayload(capture, range) {
-  return claimPayload(capture, range);
-}
-export function validateEvidence(data) {
-  if (!data || data.schemaVersion !== '1.0' || typeof data.summary !== 'string' || !data.summary.trim() || !['complete', 'insufficient_evidence'].includes(data.status)) throw new Error('Invalid investigation response.');
-  const result = { summary: data.summary, warnings: validateWarnings(data.warnings) };
-  for (const [wire, display] of [['supports', 'supporting'], ['contradicts', 'contradicting'], ['qualifies', 'qualifying'], ['related', 'related']]) {
-    if (!Array.isArray(data[wire]) || data[wire].length > 50 || data[wire].some(item => !item || typeof item.title !== 'string' || !item.title.trim() || typeof item.explanation !== 'string' || !(item.url == null || typeof item.url === 'string'))) throw new Error('Invalid evidence response.');
-    result[display] = data[wire].map(item => ({ title: item.title, url: item.url, why: item.explanation }));
-  }
-  return result;
+// Re-export the already-correct, already-validated request/response shape
+// from api.mjs (the client contract in extension/BACKEND_HANDOFF.md, which
+// the current backend implements at POST /v1/investigations) instead of
+// duplicating validation logic here — keeps evidence-response safety rules
+// (rejecting empty explanations, unsafe URLs, etc.) defined in exactly one
+// place. Keeping these export names so sidepanel.mjs's call sites don't
+// need to change, only the endpoint path.
+export { claimPayload as investigationPayload, validateInvestigation as validateEvidence };
+
+export function chatPayload(question, pageContent, pageMetadata) {
+  return { schemaVersion: '1.0', question, pageContent, pageMetadata };
 }
 function validateWarnings(warnings) {
   if (!Array.isArray(warnings) || warnings.length > 20 || warnings.some(w => typeof w !== 'string' || w.length > 2000)) throw new Error('Invalid backend warnings.');
   return warnings;
 }
-
 export function safeSourceUrl(value) {
   try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null; } catch { return null; }
 }

@@ -21,7 +21,7 @@ const server = createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (responseMode === 'auth-error') { res.writeHead(401); res.end(JSON.stringify({ error: { message: 'DO NOT DISPLAY SECRET' } })); return; }
     if (responseMode === 'slow') { req.socket.on('close', () => res.destroy()); return; }
-    res.end(JSON.stringify({ schemaVersion: '1.0', status: 'complete', warnings: [], summary: 'Fixture evidence only', supports: [{title:'Test source',url:'https://example.org',explanation:'Test evidence'}], contradicts:[], qualifies:[], related:[] })); return;
+    res.end(JSON.stringify({ schemaVersion: '1.0', status: 'complete', summary: 'Fixture evidence only', supports: [{title:'Test source',url:'https://example.org',explanation:'Test evidence'}], contradicts:[], qualifies:[], related:[], warnings:[] })); return;
   }
   res.setHeader('Content-Type', 'text/html'); res.end(fixture);
 });
@@ -109,7 +109,7 @@ try {
   assert.equal(await evaluate(sidebar, "document.querySelector('#evidence').hidden"), false, status);
   assert.equal(await evaluate(sidebar, "document.querySelector('#highlight').textContent"), selected.trim().replace(/\s+/g, ' '));
   assert.equal(await evaluate(sidebar, "document.querySelector('#range').value"), 'section');
-  console.log('PASS selection → saved section context → real sidebar → /investigate → evidence');
+  console.log('PASS selection → saved section context → real sidebar → /v1/investigations → evidence');
   console.log(await evaluate(sidebar, "document.querySelector('#evidence').textContent"));
   if (!process.argv.includes('--real-backend')) {
     assert.equal(received.body.contextRange, 'section');

@@ -20,8 +20,17 @@ const server = createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (responseMode === 'slow') { req.socket.on('close', () => res.destroy()); return; }
     if (responseMode === 'error') { res.writeHead(503); res.end('{}'); return; }
-    if (req.url === '/v1/chat') res.end(JSON.stringify({ schemaVersion: '1.0', warnings: [], answer: responseMode === 'ungrounded' ? 'This is not stated in the paper.' : '<img src=x> The trial improved recall.', grounded: responseMode !== 'ungrounded' }));
-    else res.end(JSON.stringify({ schemaVersion: '1.0', status: responseMode === 'empty' ? 'insufficient_evidence' : 'complete', warnings: [], summary: 'Fixture evidence.', supports: responseMode === 'empty' ? [] : [{ title: '<img src=x>', url: 'https://example.org/source', explanation: 'Supports recall.' }, { title: 'Unsafe link', url: 'javascript:alert(1)', explanation: 'No clickable URL.' }], contradicts: [], qualifies: [], related: [] }));
+    if (req.url === '/v1/chat') res.end(JSON.stringify({ schemaVersion: '1.0', answer: responseMode === 'ungrounded' ? 'This is not stated in the paper.' : '<img src=x> The trial improved recall.', grounded: responseMode !== 'ungrounded', warnings: [] }));
+    else {
+      const status = responseMode === 'empty' ? 'insufficient_evidence' : 'complete';
+      // 'unsafe' exercises the client's strict contract: validateInvestigation
+      // rejects the WHOLE response if any evidence item has an unsafe URL
+      // (unlike the old per-item safeSourceUrl-at-render filtering).
+      const supports = responseMode === 'empty' ? []
+        : responseMode === 'unsafe' ? [{ title: 'Unsafe link', url: 'javascript:alert(1)', explanation: 'No clickable URL.' }]
+        : [{ title: '<img src=x>', url: 'https://example.org/source', explanation: 'Supports recall.' }];
+      res.end(JSON.stringify({ schemaVersion: '1.0', status, summary: 'Fixture evidence.', supports, contradicts: [], qualifies: [], related: [], warnings: [] }));
+    }
     return;
   }
   res.setHeader('Content-Type', 'text/html'); res.end(fixture);
@@ -123,6 +132,10 @@ try {
   assert.equal(received.body.highlight, 'the intervention improved recall');
   assert.equal(await evaluate(ui, "document.querySelectorAll('#evidence a').length"), 1);
   assert.equal(await evaluate(ui, "document.querySelector('#evidence img') === null"), true);
+  responseMode = 'unsafe';
+  await evaluate(ui, "document.querySelector('#investigate').click()");
+  await waitFor(ui, "document.querySelector('#status').dataset.error === 'true'");
+  assert.match(await evaluate(ui, "document.querySelector('#status').textContent"), /incompatible/);
   responseMode = 'empty';
   await evaluate(ui, "document.querySelector('#investigate').click()");
   await waitFor(ui, "document.querySelector('#evidence').textContent.includes('No evidence returned')");

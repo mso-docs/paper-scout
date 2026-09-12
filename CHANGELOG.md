@@ -136,6 +136,17 @@ tracked under [Unreleased].
 
 ### Changed
 
+- Reconciled two independent, parallel fixes for the same sidebar/backend
+  contract bug (see "Fixed" above): kept `backend-api.mjs`'s
+  `validateEvidence` as a direct re-export of `api.mjs`'s
+  `validateInvestigation` rather than a second, looser duplicate validator
+  (the duplicate allowed empty explanations and null URLs, which the
+  documented contract and `api.test.mjs` both reject) — one validator, not
+  two that can drift apart — while keeping the other side's real
+  improvements: `warnings` rendered in both the investigation and chat UI,
+  and `validateChat` now checks `schemaVersion` and `warnings` shape too.
+  Re-verified against real headless Chromium after merging (21 unit tests,
+  both smoke tests passing).
 - Extension version is 0.3.0, adds `sidePanel` permission/default panel and requires
   Chrome 116+. The original popup remains separate and links to the sidebar.
 - Updated root/extension READMEs, extension delivery checklist and backend handoff

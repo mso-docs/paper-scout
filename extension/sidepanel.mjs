@@ -1,5 +1,5 @@
 import { loadSettings, saveContextRange, saveSettings, hostPattern } from './settings.mjs';
-import { investigationPayload, validateEvidence, validateChat, safeSourceUrl, backendRequest } from './backend-api.mjs';
+import { investigationPayload, validateEvidence, validateChat, chatPayload, safeSourceUrl, backendRequest } from './backend-api.mjs';
 const $ = id => document.getElementById(id);
 let connection, capture, source, controller, busy = false, generation = 0;
 const message = (text, error = false) => { $('status').textContent = text; $('status').dataset.error = String(error); };
@@ -82,15 +82,15 @@ async function investigate(signal) {
   const container = $('evidence'); container.replaceChildren();
   add(container, 'h2', 'Investigation'); add(container, 'p', data.summary);
   for (const warning of data.warnings) add(container, 'p', warning, 'warning');
-  if (['supporting', 'contradicting', 'qualifying', 'related'].every(key => !data[key].length)) add(container, 'p', 'No evidence returned. This does not establish whether the claim is true.', 'warning');
-  for (const [key, label] of [['supporting', 'Supporting'], ['contradicting', 'Conflicting'], ['qualifying', 'Qualifying'], ['related', 'Related']]) {
+  if (data.status === 'insufficient_evidence') add(container, 'p', 'No evidence returned. This does not establish whether the claim is true.', 'warning');
+  for (const [key, label] of [['supports', 'Supporting'], ['contradicts', 'Conflicting'], ['qualifies', 'Qualifying'], ['related', 'Related']]) {
     add(container, 'h3', label);
     if (!data[key].length) add(container, 'p', 'No evidence in this category.', 'hint');
     for (const item of data[key]) {
       const article = add(container, 'article', '', 'card'); const url = safeSourceUrl(item.url);
       const title = add(article, url ? 'a' : 'strong', item.title);
       if (url) { title.href = url; title.target = '_blank'; title.rel = 'noopener noreferrer'; }
-      add(article, 'p', item.why);
+      add(article, 'p', item.explanation);
     }
   }
   container.hidden = false;
@@ -107,7 +107,7 @@ $('chat-form').addEventListener('submit', event => {
     if (paper.url !== tab.url || metadata.pageMetadata.url !== tab.url) throw new Error('The source page changed. Submit again.');
     if (source && (source.id !== tab.id || source.url !== tab.url)) $('history').replaceChildren();
     setSource(tab, metadata.pageMetadata);
-    const data = validateChat(await backendRequest('/v1/chat', connection, { payload: { schemaVersion: '1.0', question, pageContent: paper.pageContent, pageMetadata: metadata.pageMetadata }, signal }));
+    const data = validateChat(await backendRequest('/v1/chat', connection, { payload: chatPayload(question, paper.pageContent, metadata.pageMetadata), signal }));
     await assertSource(tab); signal.throwIfAborted();
     const entry = add($('history'), 'article', '', `card answer-${data.grounded ? 'grounded' : 'ungrounded'}`);
     add(entry, 'h3', 'You'); add(entry, 'p', question);
