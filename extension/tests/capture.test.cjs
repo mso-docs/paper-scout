@@ -4,7 +4,7 @@ const { readFileSync } = require("node:fs");
 const vm = require("node:vm");
 const content = readFileSync(`${__dirname}/../content.js`, "utf8");
 
-function scrape({ heading = null, title = "Paper title", type = "text/html", highlight = "", paragraph = null, section = null, div = null, editable = false, metadata = {}, url = "https://example.org/paper" } = {}) {
+function scrape({ heading = null, title = "Paper title", type = "text/html", highlight = "", paragraph = null, section = null, div = null, editable = false, metadata = {}, abstract = null, url = "https://example.org/paper" } = {}) {
   const common = { nodeType: 1, closest: selector => {
     if (selector === "p") return paragraph === null ? null : { innerText: paragraph };
     if (selector === "section") return section === null ? null : { innerText: section };
@@ -16,7 +16,7 @@ function scrape({ heading = null, title = "Paper title", type = "text/html", hig
     Node: { ELEMENT_NODE: 1 },
     document: {
       contentType: type, title,
-      querySelector: selector => selector === "h1" ? (heading === null ? null : { textContent: heading }) : { content: metadata[selector.match(/"([^"]+)"/)[1]] },
+      querySelector: selector => selector === "h1" ? (heading === null ? null : { textContent: heading }) : { content: metadata[selector.match(/"([^"]+)"/)?.[1]], innerText: selector.startsWith("blockquote") ? abstract : undefined },
       querySelectorAll: () => [],
     },
     window: { getSelection: () => ({ rangeCount: 1, isCollapsed: !highlight, toString: () => highlight,
@@ -55,4 +55,10 @@ test("editable fields, oversized selections, and PDFs are rejected", () => {
   assert.match(scrape({ highlight: "x".repeat(8001) }).selectionError, /shorter/);
   assert.equal(scrape({ highlight: "x".repeat(8001) }).highlight, null);
   assert.deepEqual(scrape({ type: "application/pdf" }), { status: "unsupported-pdf" });
+});
+
+test("abstract metadata excludes generic site descriptions and reads paper abstract DOM", () => {
+  assert.equal(scrape({ metadata: { description: "Search millions of papers" } }).pageMetadata.abstract, null);
+  assert.equal(scrape({ abstract: "Abstract:  Actual paper findings. " }).pageMetadata.abstract, "Actual paper findings.");
+  assert.equal(scrape({ metadata: { citation_abstract: "Published abstract" }, abstract: "Other text" }).pageMetadata.abstract, "Published abstract");
 });

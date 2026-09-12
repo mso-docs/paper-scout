@@ -20,9 +20,10 @@
       <p id="status" role="status" aria-live="polite">Reading selection…</p>
       <section id="result" class="card" aria-label="Captured page" hidden>
         <h2 id="page-title"></h2><p id="page-url" class="url"></p>
-        <details><summary>Page metadata</summary><dl><dt>First heading</dt><dd id="heading"></dd><dt>Paper identifier</dt><dd id="identifier"></dd></dl></details>
+        <details><summary>Page metadata</summary><dl><dt>First heading</dt><dd id="heading"></dd><dt>Paper identifier</dt><dd id="identifier"></dd><dt>Abstract (when available)</dt><dd id="abstract"></dd></dl></details>
         <label for="context-range">Surrounding context</label>
-        <select id="context-range"><option value="highlight">Highlight only</option><option value="paragraph" selected>Paragraph</option><option value="section">Section</option></select>
+        <input id="context-range" type="range" min="0" max="2" step="1" value="1" aria-valuetext="Paragraph" aria-describedby="range-labels">
+        <div id="range-labels" class="range-labels"><span>Highlight only</span><span>Paragraph</span><span>Section</span></div>
         <h3>Highlighted claim</h3><blockquote id="highlight"></blockquote>
         <h3 id="context-label">Context to send</h3><p id="context" class="captured-text"></p>
         <p id="capture-warning" class="warning" role="status"></p>

@@ -4,6 +4,9 @@ import { claimPayload, requestApi, validateInvestigation } from "./api.mjs";
 const $ = id => document.getElementById(id);
 let connection, captured, originTabId, controller;
 let busy = false;
+const contextRanges = ["highlight", "paragraph", "section"];
+const selectedRange = () => contextRanges[Number($("context-range").value)];
+function setRange(range) { $("context-range").value = String(contextRanges.indexOf(range)); }
 function message(id, text, error = false) { $(id).textContent = text; $(id).dataset.error = String(error); }
 function updateActions() {
   $("investigate").disabled = busy || !captured?.highlight || !connection;
@@ -23,6 +26,7 @@ function updateDestination() {
   $("destination").textContent = `Send to: ${settings.backendUrl}${settings.aiEnabled ? ` · Custom model: ${settings.aiModel}. Your AI key is sent to this backend.` : " · Backend's AI configuration"}`;
 }
 function renderCapture() {
+  $("context-range").setAttribute("aria-valuetext", ["Highlight only", "Paragraph", "Section"][Number($("context-range").value)]);
   $("evidence").hidden = true;
   message("api-status", "");
   $("result").hidden = !captured;
@@ -31,13 +35,14 @@ function renderCapture() {
   $("page-url").textContent = captured.pageMetadata.url;
   $("heading").textContent = captured.heading || "No non-empty <h1> heading found.";
   $("identifier").textContent = captured.pageMetadata.doi || captured.pageMetadata.arxivId || "No paper identifier found.";
+  $("abstract").textContent = captured.pageMetadata.abstract || "No paper abstract found.";
   $("highlight").textContent = captured.highlight || "No claim selected. Highlight text on the page and reopen Paper Scout.";
-  const context = captured.contexts[$("context-range").value];
+  const context = captured.contexts[selectedRange()];
   $("context").textContent = context?.text || "Select a claim to preview its context.";
   $("context-label").textContent = `Context to send${context ? ` (${context.effectiveRange})` : ""}`;
   $("capture-warning").textContent = captured.selectionError || context?.warning || "";
   $("payload-details").hidden = !captured.highlight;
-  $("payload").value = captured.highlight ? JSON.stringify(claimPayload(captured, $("context-range").value), null, 2) : "";
+  $("payload").value = captured.highlight ? JSON.stringify(claimPayload(captured, selectedRange()), null, 2) : "";
   updateActions();
 }
 async function capturePage() {
@@ -95,7 +100,7 @@ function evidenceResults(data) {
 $("show-settings").addEventListener("click", () => showSettings(true));
 $("show-capture").addEventListener("click", () => showSettings(false));
 $("capture").addEventListener("click", capturePage);
-$("context-range").addEventListener("change", renderCapture);
+$("context-range").addEventListener("input", renderCapture);
 $("ai-enabled").addEventListener("change", () => { $("ai-fields").hidden = !$("ai-enabled").checked; });
 $("settings-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -106,7 +111,7 @@ $("settings-form").addEventListener("submit", async event => {
     const allowed = await chrome.permissions.request({ origins: [hostPattern(settings.backendUrl)] });
     if (!allowed) throw new Error("Host access was declined. Settings were not saved.");
     connection = await saveSettings(settings, { backendToken: $("backend-token").value, aiApiKey: $("ai-key").value });
-    $("context-range").value = settings.contextRange;
+    setRange(settings.contextRange);
     updateDestination(); renderCapture();
     message("settings-status", "Connection saved. Test it below when the backend is running.");
   } catch (error) { message("settings-status", error.message, true); }
@@ -140,7 +145,7 @@ $("investigate").addEventListener("click", async () => {
     // Refuse stale snapshots after navigation. The capture's URL stays authoritative.
     const tab = await chrome.tabs.get(originTabId);
     if (tab.url !== captured.pageMetadata.url) throw new Error("The source page changed. Capture it again before investigating.");
-    const data = await requestApi("/v1/investigations", connection, { payload: claimPayload(captured, $("context-range").value), signal: requestController.signal });
+    const data = await requestApi("/v1/investigations", connection, { payload: claimPayload(captured, selectedRange()), signal: requestController.signal });
     evidenceResults(validateInvestigation(data));
     message("api-status", "Investigation complete for the captured claim.");
   } catch (error) { message("api-status", error.message, true); }
@@ -150,7 +155,7 @@ window.addEventListener("pagehide", () => controller?.abort());
 
 try {
   connection = await loadSettings();
-  fillSettings(); $("context-range").value = connection.settings.contextRange; updateDestination();
+  fillSettings(); setRange(connection.settings.contextRange); updateDestination();
   $("settings-fields").disabled = false; $("test-connection").disabled = false; $("clear-keys").disabled = false;
 } catch { message("settings-status", "Couldn't load settings. Reload the extension and try again.", true); }
 await capturePage();

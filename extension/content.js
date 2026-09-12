@@ -14,7 +14,7 @@
     pageMetadata: {
       title: limit(meta("citation_title") || meta("DC.Title") || meta("og:title") || normalize(document.title) || heading, 500),
       url: location.href,
-      abstract: limit(meta("citation_abstract") || meta("DC.Description") || meta("description"), 12000),
+      abstract: limit(meta("citation_abstract") || meta("DC.Description") || normalize(document.querySelector("blockquote.abstract, .ltx_abstract .ltx_p, section.abstract")?.innerText)?.replace(/^Abstract\s*:\s*/i, ""), 12000),
       doi: /^10\.\d{4,9}\/\S+$/i.test(doi) ? limit(doi, 500) : null,
       arxivId: arxiv || null,
       authors: [...document.querySelectorAll('meta[name="citation_author"]')].slice(0, 100).map(el => limit(normalize(el.content), 200)).filter(Boolean),

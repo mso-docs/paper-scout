@@ -83,8 +83,11 @@ try {
   await waitFor(ui, "document.querySelector('#highlight')?.textContent.includes('the intervention')");
   assert.equal(await evaluate(ui, "document.querySelector('#highlight').textContent"), 'the intervention improved recall');
   assert.match(await evaluate(ui, "document.querySelector('#context').textContent"), /Larger trials/);
-  await evaluate(ui, "document.querySelector('#context-range').value='section';document.querySelector('#context-range').dispatchEvent(new Event('change'))");
+  await evaluate(ui, "document.querySelector('#context-range').value='2';document.querySelector('#context-range').dispatchEvent(new Event('input'))");
   assert.match(await evaluate(ui, "document.querySelector('#context').textContent"), /other populations/);
+  assert.equal(await evaluate(ui, "document.querySelector('#context-range').getAttribute('aria-valuetext')"), 'Section');
+  await evaluate(ui, "document.querySelector('#context-range').value='0';document.querySelector('#context-range').dispatchEvent(new Event('input'))");
+  assert.equal(await evaluate(ui, "document.querySelector('#context').textContent"), 'the intervention improved recall');
   console.log('PASS selection survives toolbar action; paragraph and section previews');
   await evaluate(ui, `document.querySelector('#show-settings').click();document.querySelector('#backend-url').value=${JSON.stringify(base)};document.querySelector('#backend-token').value='fixture-token';document.querySelector('#save-settings').click()`);
   await waitFor(ui, "document.querySelector('#settings-status').textContent.includes('Connection saved')");
@@ -136,6 +139,37 @@ try {
   await evaluate(ui, "document.querySelector('#show-capture').click()");
   const captureShot = await call('Page.captureScreenshot', {}, ui);
   await writeFile(join(tmpdir(), 'paper-scout-capture.png'), Buffer.from(captureShot.data, 'base64'));
+  if (process.argv.includes('--real-papers')) {
+    const contentScript = await readFile(join(extension, 'content.js'), 'utf8');
+    for (const url of ['https://arxiv.org/abs/1706.03762', 'https://arxiv.org/html/2401.04088v1']) {
+      const paperTarget = (await call('Target.createTarget', { url })).targetId;
+      const paper = await attach(paperTarget);
+      await waitFor(paper, "!!document.querySelector('blockquote.abstract, .ltx_abstract')");
+      await evaluate(paper, `{
+        const root = document.querySelector('.ltx_abstract .ltx_p, blockquote.abstract');
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node; while ((node = walker.nextNode())) { if (node.textContent.trim().length > 80) break; }
+        if (!node) throw new Error('No abstract passage found');
+        const range = document.createRange(); range.setStart(node, 0); range.setEnd(node, Math.min(node.length, 100));
+        getSelection().removeAllRanges(); getSelection().addRange(range);
+      }`);
+      const capture = await evaluate(paper, contentScript);
+      assert.equal(capture.status, 'captured');
+      assert.equal(capture.pageMetadata.url, url);
+      assert.ok(capture.pageMetadata.title);
+      assert.ok(capture.pageMetadata.abstract?.length > 100);
+      assert.ok(capture.pageMetadata.arxivId);
+      assert.ok(capture.highlight);
+      for (const [level, context] of Object.entries(capture.contexts)) {
+        assert.ok(context.text.includes(capture.highlight), `${url}: ${level} preserves highlight`);
+        assert.ok(context.text.length <= 24000);
+        if (context.effectiveRange === 'highlight') assert.equal(context.text, capture.highlight);
+        if (level !== 'highlight' && context.effectiveRange === 'highlight') assert.ok(context.warning);
+      }
+      console.log(`PASS real paper ${url}: ${JSON.stringify({ title: capture.pageMetadata.title, abstractLength: capture.pageMetadata.abstract.length, contexts: Object.fromEntries(Object.entries(capture.contexts).map(([k,v]) => [k, { range: v.effectiveRange, length: v.text.length, warning: v.warning }])) })}`);
+      await call('Target.closeTarget', { targetId: paperTarget });
+    }
+  }
   console.log('PASS real Chromium smoke check (local API double; no backend or AI implementation)');
 } finally {
   for (const p of pending.values()) clearTimeout(p.timer);

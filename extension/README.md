@@ -11,7 +11,7 @@ contract and backend checklist are in [BACKEND_HANDOFF.md](BACKEND_HANDOFF.md).
    folder unpacked (or Reload its card if already installed). There is no build.
 2. Open an HTML paper, highlight a passage, then click Paper Scout's toolbar icon.
 3. The popup automatically captures the selection. Choose Highlight only,
-   Paragraph (default), or Section and review the exact context to send.
+   Paragraph (default), or Section using the slider and review the exact context to send.
 4. Open Settings, enter a Paper Scout backend base URL, and Save connection.
    Accept Chrome's access prompt for that host. `http://localhost:8787` is the
    default; the backend need not be running to save settings or preview claims.
@@ -37,7 +37,7 @@ or switching context ranges. Capture JSON previews contain no keys.
 ## Implemented and remaining extension work
 
 - [x] Top-frame HTML selection capture, paragraph/section choices and previews.
-- [x] Metadata hints: citation title/authors/DOI, URL arXiv ID, abstract/description.
+- [x] Metadata hints: citation title/authors/DOI, URL arXiv ID, explicit paper abstract metadata/DOM (generic descriptions are excluded).
 - [x] Visible fallback for missing/cross-paragraph/oversized context; never send
   an implicitly clipped claim or an entire document as surrounding context.
 - [x] Saved backend URL/token, default context, optional AI URL/model/key settings.
@@ -76,8 +76,7 @@ to refresh it.
 - `tests/`: behavior tests, HTML fixture and disposable-browser smoke check.
 
 No production mock mode, dependencies, background worker, or backend changes
-are included. Shared repository plan/README files were deliberately left alone
-in this milestone to keep the work inside the extension owner's directory.
+are included. Steps 3–4 status and verification are documented in the shared plan and README.
 
 ## Checks
 
@@ -92,6 +91,8 @@ Real browser smoke check (Node 22+ and recent Chromium with
 
 ```sh
 node extension/tests/browser-smoke.mjs
+# Also verify two live arXiv pages (network required):
+node extension/tests/browser-smoke.mjs --real-papers
 ```
 
 Set `CHROMIUM=/path/to/chromium` if needed. This creates a disposable profile,

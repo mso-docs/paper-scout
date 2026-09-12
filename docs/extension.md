@@ -1,58 +1,45 @@
 # Extension foundation and delivery checklist
 
-## Implemented in Step 3
+## Implemented in Steps 3–4
 
-Load `extension/` unpacked, open an HTTP(S) HTML page, open the toolbar popup,
-and click **Capture current page**. The popup displays the first `<h1>`'s
-normalized text, the document title, and the current URL. An absent or empty
-first heading is reported explicitly. Subsequent captures read the current DOM.
+Load `extension/` unpacked and highlight a passage on an HTTP(S) HTML page.
+The toolbar popup captures the selection automatically; **Capture current page**
+refreshes it. Without a selection it still shows the first heading and metadata.
+Use the three-position slider to preview Highlight only, Paragraph (default),
+or Section. The saved default is configured in Settings.
 
-There is no build step, backend dependency, automatic browsing capture, or
-persistence. Closing the popup discards the result. Chrome internal pages,
-local files, protected pages, and PDFs show an explanatory error. Capture is
-limited to the top frame's ordinary DOM; nested frames and shadow roots aren't
-searched. This is generic HTML heading capture, not verified paper identification
-or provider-specific extraction.
+Capture uses the selection's common ancestor so expanded context must contain
+both endpoints. Paragraph requires an enclosing `<p>`. Section prefers the
+nearest enclosing `<section>`, falling back to `<div>`. Missing ancestors,
+cross-paragraph selections, and contexts over 24,000 characters fall back to
+highlight only with a visible warning. Highlights over 8,000 characters are
+rejected; claims are never silently truncated. Whitespace is normalized.
 
-`manifest.json` declares the popup, icons, and only `activeTab` / `scripting`
-permissions. This follows Chrome's [on-demand injection pattern](https://developer.chrome.com/docs/extensions/get-started/tutorial/scripts-activetab).
-`popup.js` obtains the active tab and injects `content.js` into its isolated
-world. The script's final expression returns serializable data through
-[`scripting.executeScript`](https://developer.chrome.com/docs/extensions/reference/api/scripting).
-No background worker is needed for this milestone.
+Paper metadata includes title, URL, DOI, arXiv ID, authors, and abstract when
+available. Abstract extraction uses citation/DC metadata or explicit abstract
+DOM containers, never generic SEO descriptions. Metadata is best effort; a
+landing page is not full-paper content. The abstract is visible under Page metadata.
+
+`content.js` performs on-demand top-frame DOM extraction; `popup.mjs` renders
+plain text. Captures/results remain in popup memory and clear on close. Settings
+use local/session storage. Capturing or changing context makes no network request;
+the existing Investigate action sends only on explicit click. Protected browser
+pages, local files, PDFs, editable fields, frames and shadow roots are unsupported.
 
 ## Current capture contract
 
-```json
-{
-  "status": "captured",
-  "heading": "A paper title",
-  "pageMetadata": {
-    "title": "Document title",
-    "url": "https://example.org/paper"
-  }
-}
-```
-
-`heading` and `pageMetadata.title` are `null` when empty or absent. The heading
-is not guaranteed to be the paper title. A PDF detected inside the injected
-script returns `{ "status": "unsupported-pdf" }`. The popup also checks PDF
-URL suffixes and handles injection rejection from Chrome's protected viewer.
-Reliable PDF detection/extraction remains the Step 12 stretch goal.
-
-Keep DOM extraction in `content.js`, separate from UI and transport, as this
-grows. Extend `pageMetadata` with validated paper identifiers and metadata in
-Step 4. Build explicit claim and chat payloads instead of sending this heading
-preview directly to an LLM:
-
-- Claim request: `{ highlight, contextRange, context, pageMetadata }` (Steps 4, 7).
-- Chat request: `{ question, pageContent, pageMetadata }` (Steps 12–13).
+The client already assembles `{ highlight, contextRange, context, pageMetadata }`
+with `schemaVersion` and capture timestamp/requested-range/warnings. On fallback,
+`contextRange` describes the actual context; `capture.requestedRange` records the
+slider choice. See the existing [backend handoff](../extension/BACKEND_HANDOFF.md)
+for the exact contract. Step 4 does not change API routes, transport, schema,
+or backend code. Agreement and integration with Ruben's backend remain pending.
 
 ## Remaining MVP work and acceptance criteria
 
 These are required for the product MVP; they are not provided by the popup demo.
 
-- [ ] **Claim capture (Step 4):** preserve the selection when opening UI;
+- [x] **Claim capture (Step 4):** preserve the selection when opening UI;
   capture highlight, paragraph (default), or section context. Define fallbacks
   for missing ancestors, selections spanning elements, and excessively large
   containers. Preview the actual context and never silently change the claim.
@@ -109,42 +96,45 @@ Accounts, reference managers, collaboration, citation graphs, and the other
 
 ## Verification
 
-Run the dependency-free behavior checks with Node.js 20 or newer:
+Run the dependency-free behavior checks with Node.js 20+:
 
 ```sh
-node --test extension/tests/*.test.cjs
+node --test extension/tests/*.test.cjs extension/tests/*.test.mjs
 ```
 
-These test normalization, missing headings, plain-text rendering, repeat
-captures, unsupported pages/PDFs, and failure recovery using a mocked Chrome
-API. Real Chrome permission and popup behavior also require a browser check.
+Run the disposable Chromium smoke check with Node.js 22+ and recent Chromium:
 
-Verified on 2026-09-12 in an isolated Chromium 152 headless profile with the
-unpacked extension: triggered the real toolbar action to grant `activeTab`,
-clicked the popup capture button, checked the local fixture and missing-heading
-case, then captured the actual first heading and URL on the arXiv abstract page
-below. All seven automated behavior tests passed. The manual protected-page
-checks below and testing in a normal Chrome desktop profile remain useful
-follow-up checks; blocked-page behavior currently also has mocked API coverage.
+```sh
+node extension/tests/browser-smoke.mjs
+node extension/tests/browser-smoke.mjs --real-papers
+```
 
-For a repeatable manual fixture, run from the repository root:
+The first checks the real toolbar/selection, all three slider positions, context
+fallbacks, settings, safe rendering, cancellation and stale-page rejection using
+a local API test double. The second additionally captures live arXiv abstract and
+HTML paper pages, checking metadata and complete highlight containment at every
+range level. No real backend or LLM is called.
+
+Verified 2026-09-12: all 14 behavior tests and both browser commands passed.
+Live pages were `https://arxiv.org/abs/1706.03762` (Attention Is All You Need)
+and `https://arxiv.org/html/2401.04088v1` (Mixtral of Experts). Both returned
+paper titles, abstracts, arXiv IDs, and intact highlights at all three ranges.
+The abstract page has no enclosing paragraph and correctly warns/falls back;
+the HTML paper provides both paragraph and section context. Broader checks on
+Semantic Scholar, OpenAlex and Hugging Face remain future provider coverage.
+
+The Chrome host-permission dialog
+still needs manual verification in a desktop profile.
+
+For a manual fixture, run:
 
 ```sh
 python3 -m http.server 8000 --bind 127.0.0.1 --directory extension/tests
 ```
 
-1. Load the extension as described in the README. Open
-   `http://127.0.0.1:8000/fixture.html` and capture it from the popup.
-   Expect **A paper about reliable research**, with the fixture title and URL.
-2. Remove both `<h1>` elements through page DevTools and capture again. Expect
-   the missing-heading message and intact page metadata.
-3. Capture a real HTML paper/abstract page, e.g.
-   `https://arxiv.org/abs/1706.03762`. Its first heading currently reads
-   **Computer Science > Computation and Language**, rather than the paper
-   title. Compare against the first `<h1>` in DevTools if the site changes;
-   paper-title extraction is a separate Step 4 task.
-4. Try `chrome://extensions`, the Chrome Web Store, and an arXiv PDF. Expect
-   an explanatory error and an enabled capture button, with no stale result.
-5. Navigate to another HTML page and capture again. Confirm its heading and
-   URL replace the previous page. Close/reopen the popup and confirm it starts
-   empty. Check the extension's Errors panel for unexpected errors.
+Open `http://127.0.0.1:8000/fixture.html`. Select the bold claim: Paragraph must
+include the trial caveat, Section the population limitation, and Highlight only
+exactly the claim. Select across paragraphs to check the visible fallback; select
+the text outside a paragraph to check the div fallback. Use arrow keys on the
+slider and confirm its announced range matches the preview. Also check a missing
+heading, no selection, a protected page, and a PDF. Reload the extension after edits.

@@ -65,15 +65,14 @@ Stand up a minimal working extension as a technical foundation.
 
 Implemented as a dependency-free popup with a **Capture current page** button.
 `content.js` captures the first heading plus `{ title, url }` page metadata;
-`popup.js` handles browser access and renders the result as text. Missing or
+`popup.mjs` handles browser access and renders the result as text. Missing or
 empty headings are explicit, with no title substitution. Captures are temporary
-and make no network requests. Permissions are limited to `activeTab` and
-`scripting`. See [`extension.md`](extension.md) for the capture contract,
+and make no network requests. The current extension also uses `storage` for connection preferences and
+optional host access for explicit backend requests. See [`extension.md`](extension.md) for the capture contract,
 verification instructions, MVP acceptance checklist, and deferred work.
 
-This completes the implementation foundation, not the product MVP. The next
-capture milestone is item 4; heading text alone is neither a claim payload nor
-the full paper content required for Chat with Paper.
+Step 3 is complete. Step 4 now adds selection capture below; full paper content
+for Chat with Paper remains separate work.
 
 ## 4. Claim capture: highlight + surrounding context
 
@@ -87,20 +86,28 @@ losing meaning if it references something defined earlier ("this effect",
 "the same dataset"). A context window around the highlight fixes that without
 the cost of analyzing an entire paper.
 
-- [ ] Add a context-range slider to the popup/sidebar UI with three levels
+- [x] Add a context-range slider to the popup/sidebar UI with three levels
       (default: **Paragraph**):
-  - [ ] **Highlight Only** — just the selected text, no expansion
-  - [ ] **Paragraph** — walk up from the highlight to its enclosing `<p>` tag
-  - [ ] **Section** — walk up from the highlight to the first outer
+  - [x] **Highlight Only** — just the selected text, no expansion
+  - [x] **Paragraph** — walk up from the highlight to its enclosing `<p>` tag
+  - [x] **Section** — walk up from the highlight to the first outer
         `<section>`, falling back to the first outer `<div>` if no
         `<section>` ancestor exists
-- [ ] Implement DOM logic to walk up from the highlighted selection to the
+- [x] Implement DOM logic to walk up from the highlighted selection to the
       target ancestor for each range level
-- [ ] Capture paper-level metadata when available (title, abstract, DOI/URL)
-- [ ] Decide the payload shape sent to the backend: `{ highlight,
+- [x] Capture paper-level metadata when available (title, abstract, DOI/URL)
+- [x] Decide the payload shape sent to the backend: `{ highlight,
       contextRange, context, pageMetadata }`
-- [ ] Test against a couple of real paper pages to confirm each range level
+- [x] Test against a couple of real paper pages to confirm each range level
       produces sane, non-misleading context
+      (2026-09-12: arXiv Attention Is All You Need abstract and Mixtral of Experts HTML;
+      all three ranges preserve the claim, with explicit paragraph fallback on the abstract page)
+
+The existing versioned extension payload remains unchanged; see
+[`extension/BACKEND_HANDOFF.md`](../extension/BACKEND_HANDOFF.md). This records
+the client contract, not backend agreement. Backend integration remains Ruben’s
+work. Missing, cross-paragraph, or oversized contexts fall back to the full
+highlight with a visible warning. Captures never silently clip a claim.
 
 ## 5. API rate limiting
 
@@ -236,7 +243,8 @@ text extraction, and LLM calls without a second runtime.
       `backend/.env.example`)
 - [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12 (stretch
       goal; not needed for the initial prototype)
-- [ ] Set up `backend/pyproject.toml` (or `requirements.txt`) pinning these
+- [x] Set up root `requirements.txt` and `requirements-dev.txt` pinning the
+      agreed runtime and development packages (PDF dependencies deferred)
 - [x] Confirm this stack in `docs/integrations.md` (Backend Tech Stack
       section) so it isn't re-decided later
 

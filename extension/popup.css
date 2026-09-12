@@ -37,3 +37,6 @@ hr { border: 0; border-top: 1px solid #d3dfd8; margin: 18px 0; }
 a { color: #21614e; }
 .evidence-item { border-top: 1px solid #e5eee8; padding: 10px 0; }
 .evidence-item p { margin: 4px 0; }
+
+input[type="range"] { padding: 0; accent-color: #21614e; }
+.range-labels { display: flex; justify-content: space-between; font-size: 11px; color: #52665f; }

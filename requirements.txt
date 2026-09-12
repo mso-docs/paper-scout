@@ -1,0 +1,8 @@
+# Shared runtime dependencies. Use Python 3.14 and a project virtual environment.
+# Install development tools with: python -m pip install -r requirements-dev.txt
+# Pin direct dependencies here; pip resolves their transitive dependencies.
+fastapi==0.141.1
+uvicorn==0.52.4
+httpx==0.28.1
+pydantic==2.13.5
+python-dotenv==1.2.3
