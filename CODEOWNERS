@@ -1,0 +1,8 @@
+# See https://docs.github.com/articles/about-codeowners for syntax.
+# These owners will be requested for review on all pull requests.
+#
+# If GitHub usernames are available instead of emails, prefer
+# @username over email — GitHub matches emails only when they're
+# verified on the account opening the PR.
+
+* mackenzie.techdocs@gmail.com rarevalo1987@gmail.com
