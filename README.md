@@ -6,6 +6,8 @@ Paper Scout is a browser-based research companion that helps researchers critica
 
 Our project for AI Tinkerers Atlanta 2026.
 
+**Installing Paper Scout? Start with [QUICKSTART.md](QUICKSTART.md)** for tester setup, Ruben's local backend setup, and the planned Chrome Web Store installation flow.
+
 ## The MVP
 
 Paper Scout has two modes.
