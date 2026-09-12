@@ -4,8 +4,8 @@
 
 List the sites Paper Scout should recognize/support for context and searching.
 
-- [ ] arXiv (arxiv.org)
-- [ ] Semantic Scholar (semanticscholar.org)
+- [x] arXiv (arxiv.org) — selected for MVP, see `docs/integrations.md`
+- [x] Semantic Scholar (semanticscholar.org) — selected for MVP
 - [ ] PubMed / PubMed Central (pubmed.ncbi.nlm.nih.gov)
 - [ ] Google Scholar (scholar.google.com)
 - [ ] SSRN (ssrn.com)
@@ -16,21 +16,26 @@ List the sites Paper Scout should recognize/support for context and searching.
 - [ ] Springer / Nature (link.springer.com, nature.com)
 - [ ] ScienceDirect (sciencedirect.com)
 - [ ] OpenReview (openreview.net)
-- [ ] OpenAlex (openalex.org)
-- [ ] Hugging Face (huggingface.co) — for model/dataset papers rather than
-      general research sites
-- [ ] Trim list down to MVP launch targets (pick 2-3 to support first)
+- [x] OpenAlex (openalex.org) — selected for MVP
+- [x] Hugging Face (huggingface.co) — selected for MVP, for model/dataset
+      papers rather than general research sites
+- [x] Trim list down to MVP launch targets — arXiv, Semantic Scholar,
+      OpenAlex, Hugging Face (+ DuckDuckGo as supplemental web fallback,
+      see `docs/integrations.md`)
 
 ## 2. Mission statement
 
 Nail down what Paper Scout actually is/does, beyond the README draft.
 
-- [ ] Review current README MVP description as a starting draft
-- [ ] Define target user (e.g., researchers, students, journalists fact-checking papers)
-- [ ] Define the core problem being solved (verifying claims without leaving the paper)
-- [ ] Write a 1-2 sentence mission statement
-- [ ] Confirm scope boundaries (what Paper Scout explicitly does NOT do for MVP)
-- [ ] Update README.md with finalized mission statement
+- [x] Review current README MVP description as a starting draft
+- [x] Define target user (researchers critically reading a paper — see
+      `docs/business-logic.md` Overview)
+- [x] Define the core problem being solved (Chat with Paper explains what's
+      inside the paper; Claim Investigator investigates what's outside it)
+- [x] Write a 1-2 sentence mission statement
+- [x] Confirm scope boundaries (see `docs/business-logic.md` → MVP Scope →
+      "Do Not Build Yet")
+- [x] Update README.md with finalized mission statement
 
 ## 3. Chrome extension bare bones
 
@@ -117,7 +122,7 @@ The actual core of the product: turn a captured claim + context into a
 supporting/conflicting evidence summary. This is the piece none of the
 earlier items build yet.
 
-- [ ] Stand up a minimal backend service (e.g. small Node/Python API) that
+- [ ] Stand up the backend service (Python/FastAPI — see item 11) that
       accepts `{ highlight, contextRange, context, pageMetadata }`
 - [ ] Turn the claim into one or more search queries
 - [ ] Call the paper-search API(s) chosen from item 1, through the throttle/
@@ -165,7 +170,92 @@ by hand.
       keys (Claude API, Semantic Scholar, etc.) via a `.env` file
 - [ ] Expose the backend on a fixed local port the extension can call (e.g.
       `http://localhost:8787`)
-- [ ] Add a `.env.example` documenting required environment variables
+- [x] Add a `.env.example` documenting required environment variables
+      (`backend/.env.example`)
 - [ ] Document the run process in README: `docker compose up` (or `docker
       build` + `docker run`) to get the backend running locally
 - [ ] Verify the extension can talk to the containerized backend end-to-end
+
+## 11. Backend tech stack
+
+Decision: **Python**, so the same language handles API orchestration, PDF
+text extraction, and LLM calls without a second runtime.
+
+- [x] Language: Python
+- [ ] Web framework: **FastAPI** — async support matters here since the
+      backend fans out to multiple rate-limited external APIs (item 6);
+      also gets request/response validation and OpenAPI docs for free
+- [ ] HTTP client: **httpx** (async, so calls to arXiv/Semantic Scholar/
+      OpenAlex/Hugging Face/Claude don't block each other or the throttle
+      queue from item 5)
+- [ ] Schema/validation: **pydantic** for the request/response shapes
+      defined in items 4, 7, and 13
+- [ ] Env loading: **python-dotenv**, reading `backend/.env` (see
+      `backend/.env.example`)
+- [ ] PDF text extraction: **PyMuPDF** (`fitz`) — see item 12
+- [ ] Set up `backend/pyproject.toml` (or `requirements.txt`) pinning these
+- [x] Confirm this stack in `docs/integrations.md` (Backend Tech Stack
+      section) so it isn't re-decided later
+
+## 12. Browser-accessible PDF support
+
+Many papers are viewed as PDFs, not HTML. Chrome's built-in PDF viewer
+doesn't expose a normal scrapeable DOM to a content script the way an HTML
+page does, so text extraction has to happen server-side on the PDF bytes —
+not by scraping the rendered viewer.
+
+- [ ] Detect when the current tab is a PDF (URL ends in `.pdf`, or
+      `document.contentType === "application/pdf"`)
+- [ ] Extension fetches the PDF bytes itself (using the browser's own
+      session/cookies, so paywalled/authenticated PDFs the user can already
+      see in-browser still work) rather than having the backend re-fetch
+      the URL blind
+- [ ] Extension sends the PDF bytes to the backend (e.g. multipart upload)
+- [ ] Backend extracts text with **PyMuPDF**; note `pdfplumber` as a
+      fallback if layout-aware extraction (tables, columns) is needed later
+- [ ] Feed extracted text into the same paper-content pipeline used for
+      HTML pages (item 13), so Chat with Paper and Claim Investigator don't
+      need separate logic per page type
+- [ ] Test against a real arXiv PDF and a real HTML paper page to confirm
+      both produce usable text
+
+## 13. Chat with Paper: backend Q&A pipeline
+
+Mirrors `docs/business-logic.md`'s Chat with Paper flow (identify paper →
+retrieve content → interpret question → retrieve relevant context →
+generate grounded answer).
+
+- [ ] Identify the current paper (URL, DOI, arXiv ID, or page metadata)
+- [ ] Retrieve paper content: DOM text for HTML pages, extracted text for
+      PDFs (item 12)
+- [x] Decide the MVP context-retrieval approach: **send the full extracted
+      paper text directly as LLM context** rather than building a chunking/
+      embedding/vector-search pipeline — Claude's context window comfortably
+      fits a full paper, and this avoids scope a hackathon MVP doesn't need
+- [x] Note the upgrade path (chunk + embed + vector search) for later, if a
+      paper's text ever exceeds the context window
+- [ ] Call the LLM with the question + full paper text, instructed to
+      answer only from that content and say so if the answer isn't present
+- [x] Define the request/response shape: `{ question, pageContent,
+      pageMetadata }` → `{ answer, grounded: bool }`
+
+## 14. Chat with Paper: sidebar UI
+
+- [ ] Add a chat interface to the same sidebar built in item 8 (tab or mode
+      switch between "Investigate" and "Chat with Paper", not a separate
+      panel)
+- [ ] Input box for the question, message history for the conversation
+- [ ] Loading state while the backend answers
+- [ ] Visually distinguish a grounded answer from a "not present in this
+      paper" response
+
+## 15. Chat with Paper: end-to-end wiring
+
+- [ ] Add a way to open Paper Scout / Chat with Paper on the current page
+      (toolbar button or sidebar always-available tab — doesn't require a
+      highlight, unlike item 9's trigger)
+- [ ] On question submit, capture page content per item 12/13 and send to
+      the backend
+- [ ] Populate the sidebar (item 14) with the response
+- [ ] Walk through the full flow on a real HTML paper and a real PDF to
+      confirm both work end-to-end

@@ -110,6 +110,26 @@ payloads.
 
 ------------------------------------------------------------------------
 
+# Backend Tech Stack
+
+Decision: **Python**, so API orchestration, PDF text extraction (see
+integration 7), and LLM calls all run in one runtime.
+
+-   **Web framework:** FastAPI — async support matters here since the
+    backend fans out to several rate-limited external APIs at once.
+-   **HTTP client:** httpx (async), so calls to different providers don't
+    block each other or the shared rate-limit queue.
+-   **Schema/validation:** pydantic for request/response shapes.
+-   **Env loading:** python-dotenv, reading `backend/.env` (see
+    `backend/.env.example`).
+-   **PDF text extraction:** PyMuPDF (`fitz`); `pdfplumber` as a fallback
+    if layout-aware extraction (tables, columns) is needed later.
+
+This stack is also tracked as a checklist item in `plan.md` (item 11) —
+this section is the canonical decision; the plan just tracks setting it up.
+
+------------------------------------------------------------------------
+
 # 1. Semantic Scholar
 
 ## Purpose
@@ -421,6 +441,52 @@ LLM_API_KEY=
 
 ------------------------------------------------------------------------
 
+# 7. PDF Text Extraction
+
+## Purpose
+
+Many papers are read as browser-accessible PDFs rather than HTML pages.
+Chrome's built-in PDF viewer does not expose a normal scrapeable DOM to a
+content script the way an HTML page does, so text has to be extracted from
+the PDF bytes themselves, server-side, rather than by scraping the
+rendered viewer.
+
+## Flow
+
+``` text
+Extension detects a PDF
+(URL ends in .pdf, or document.contentType === "application/pdf")
+        ↓
+Extension fetches the PDF bytes itself
+(reuses the browser's session/cookies — works for
+ paywalled/authenticated PDFs the user can already view)
+        ↓
+Extension sends the bytes to the backend
+        ↓
+Backend extracts text with PyMuPDF (fitz)
+        ↓
+Extracted text feeds the same paper-content pipeline
+used for HTML pages (Chat with Paper, Claim Investigator context)
+```
+
+The backend should not blindly re-fetch the PDF URL itself — it has no
+access to the user's browser session, so an authenticated or paywalled PDF
+the user can see would fail. Letting the extension fetch the bytes and
+upload them sidesteps that.
+
+## Authentication
+
+No external API key required — PyMuPDF is a local library, not a hosted
+service.
+
+## Failure Handling
+
+If extraction fails (e.g. a scanned/image-only PDF with no text layer),
+Paper Scout should say extraction failed rather than returning empty or
+fabricated content. OCR is out of scope for the MVP.
+
+------------------------------------------------------------------------
+
 # Search Orchestration
 
 ## Claim Investigator
@@ -464,6 +530,27 @@ results              search
 The agent may perform a follow-up search when the first results are
 insufficient, but the MVP should cap iterations to prevent runaway
 latency and API usage.
+
+## Chat with Paper
+
+Chat with Paper does not use the scholarly search providers above at
+all — it answers from the current paper's own content (see integration 7
+for how PDF content is obtained).
+
+``` text
+Question + current paper content
+       ↓
+Send full extracted paper text as LLM context
+       ↓
+LLM answers, grounded only in that text
+```
+
+Decision: for the MVP, send the **full extracted paper text** directly as
+context rather than building a chunking/embedding/vector-search pipeline.
+Claude's context window comfortably fits a full paper, and a retrieval
+pipeline is scope a hackathon MVP doesn't need. If a paper's text ever
+exceeds the context window, the upgrade path is chunk + embed + vector
+search — not needed until that limit is actually hit.
 
 ------------------------------------------------------------------------
 
@@ -565,40 +652,23 @@ when the actual state is:
 
 # Secrets and Environment Variables
 
-Suggested `.env` structure:
+The canonical list of environment variables lives in
+[`backend/.env.example`](../backend/.env.example) — copy it to
+`backend/.env` and fill in real values. As of this writing it defines:
 
 ``` text
-# Research providers
-OPENALEX_API_KEY=
-HF_TOKEN=
-
-# LLM
-LLM_API_KEY=
+ANTHROPIC_API_KEY=       # required — Claude API (LLM)
+SEMANTIC_SCHOLAR_API_KEY=  # recommended — 1 req/sec vs. shared unauth pool
+OPENALEX_API_KEY=        # optional
+HUGGINGFACE_API_KEY=     # optional
+PORT=8787                # local backend port
 ```
 
-Semantic Scholar and arXiv do not require secrets for the planned MVP
-access.
+arXiv and unauthenticated Semantic Scholar access do not require secrets.
+DuckDuckGo search is accessed through the Python package, not an API key.
 
-DuckDuckGo search is accessed through the Python package.
-
-The `.env` file must not be committed.
-
-Suggested `.gitignore` entry:
-
-``` text
-.env
-.env.*
-!.env.example
-```
-
-An `.env.example` may document required variables without containing
-credentials:
-
-``` text
-OPENALEX_API_KEY=
-HF_TOKEN=
-LLM_API_KEY=
-```
+The `.env` file must not be committed. `.gitignore` already excludes
+`*.env`.
 
 ------------------------------------------------------------------------
 
