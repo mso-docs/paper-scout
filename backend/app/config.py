@@ -49,6 +49,12 @@ class Settings:
         self.openalex_api_key: str | None = _get_optional("OPENALEX_API_KEY")
         self.huggingface_api_key: str | None = _get_optional("HUGGINGFACE_API_KEY")
 
+        # Optional bearer token the extension authenticates to *this backend*
+        # with (not an AI provider key). Per extension/BACKEND_HANDOFF.md: if
+        # unset, the backend accepts unauthenticated requests (local dev);
+        # if set, requests must carry `Authorization: Bearer <token>`.
+        self.backend_token: str | None = _get_optional("BACKEND_TOKEN")
+
         # Local server port the extension calls.
         self.port: int = int(os.environ.get("PORT", "8787"))
 

@@ -86,6 +86,17 @@ tracked under [Unreleased].
 - Abstract extraction uses explicit paper metadata or abstract DOM containers
   instead of treating generic site descriptions as paper abstracts.
 - Expanded `.gitignore` to exclude Python virtual environments and tool caches.
+- Aligned the backend to the extension's already-implemented API contract
+  (`extension/BACKEND_HANDOFF.md`) instead of the earlier internal draft:
+  endpoints renamed to `POST /v1/investigations` and `POST /v1/chat`,
+  request/response bodies switched to the camelCase `schemaVersion`/
+  `capture`-wrapped shape the client validates against, evidence category
+  names changed to `supports`/`contradicts`/`qualifies`/`related` with
+  `explanation` (not `supporting`/`why`), `GET /health` now returns
+  `apiVersion`, added optional `Authorization: Bearer` backend-token auth,
+  and a custom `ai` override is explicitly rejected with `422` (per the
+  contract's own allowed fallback) rather than implemented. Verified live
+  against the contract doc's own example payloads.
 - Made HTML papers the required MVP path and PDF support a stretch goal;
   retained the PDF implementation plan without blocking MVP acceptance.
 

@@ -1,46 +1,98 @@
-"""Request/response schemas for the /investigate and /chat endpoints.
+"""Request/response schemas for the /v1/investigations and /v1/chat endpoints.
 
-Shapes match plan.md items 7 and 13:
-- Investigate: `{ highlight, contextRange, context, pageMetadata }` ->
-  `{ summary, supporting, contradicting, qualifying, related }`
-- Chat: `{ question, pageContent, pageMetadata }` -> `{ answer, grounded }`
+Field names and wire format here follow extension/BACKEND_HANDOFF.md exactly
+(the contract the extension client already implements and validates against)
+— NOT the earlier draft in plan.md's item 7/13, which used a different,
+snake_case, two-category shape. That draft is superseded for this client.
 
-Field names here are snake_case (Python convention); FastAPI/pydantic don't
-require the extension to send camelCase, but if the extension ends up
-sending camelCase JSON, add a pydantic alias config later rather than
-renaming these.
+Wire format is camelCase (matching the JS client); internal Python code can
+use either the snake_case attribute or the camelCase alias when constructing
+these models, since `populate_by_name=True` accepts both. FastAPI serializes
+responses using the alias by default, so the JSON sent back to the extension
+is camelCase as required.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class InvestigateRequest(BaseModel):
+class PageMetadata(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str | None = None
+    url: str
+    abstract: str | None = None
+    doi: str | None = None
+    arxiv_id: str | None = Field(default=None, alias="arxivId")
+    authors: list[str] = []
+
+
+class CaptureInfo(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    captured_at: str = Field(alias="capturedAt")
+    requested_range: str = Field(alias="requestedRange")
+    warnings: list[str] = []
+
+
+class CustomAI(BaseModel):
+    """Present only when the user enabled "Use my own AI server/model" in the
+    extension. The current backend does not implement this — see
+    app.main's explicit-rejection handling — this model exists only so a
+    request carrying `ai` still parses cleanly before being rejected.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    base_url: str = Field(alias="baseUrl")
+    model: str
+    api_key: str | None = Field(default=None, alias="apiKey")
+
+
+class InvestigationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_version: str = Field(alias="schemaVersion")
     highlight: str
-    context_range: str = "paragraph"
-    context: str = ""
-    page_metadata: dict = {}
+    context_range: str = Field(alias="contextRange")
+    context: str
+    page_metadata: PageMetadata = Field(alias="pageMetadata")
+    capture: CaptureInfo
+    ai: CustomAI | None = None
 
 
 class EvidenceItem(BaseModel):
     title: str
-    url: str | None = None
-    why: str = ""
+    url: str
+    explanation: str
 
 
-class InvestigateResponse(BaseModel):
+class InvestigationResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    status: str  # "complete" | "insufficient_evidence"
     summary: str
-    supporting: list[EvidenceItem] = []
-    contradicting: list[EvidenceItem] = []
-    qualifying: list[EvidenceItem] = []
+    supports: list[EvidenceItem] = []
+    contradicts: list[EvidenceItem] = []
+    qualifies: list[EvidenceItem] = []
     related: list[EvidenceItem] = []
+    warnings: list[str] = []
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_version: str = Field(alias="schemaVersion")
     question: str
-    page_content: str
-    page_metadata: dict = {}
+    page_content: str = Field(alias="pageContent")
+    page_metadata: PageMetadata = Field(alias="pageMetadata")
+    ai: CustomAI | None = None
 
 
 class ChatResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
     answer: str
     grounded: bool
+    warnings: list[str] = []

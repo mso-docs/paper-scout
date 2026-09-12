@@ -1,32 +1,32 @@
 """Claim Investigator orchestration (plan.md item 7).
 
-Ties together the pieces built independently in app.providers (search),
-app.throttle/app.rate_limits (already used internally by each provider),
-and app.llm (evidence classification) into the actual /investigate flow:
+Ties together app.providers (search), the throttle/registry each provider
+already calls internally, and app.llm (evidence classification) into the
+/v1/investigations flow, matching the contract in
+extension/BACKEND_HANDOFF.md:
 
-    claim + context
+    highlight + context (+ pageMetadata, capture)
         -> search query
         -> concurrent provider search (arXiv, Semantic Scholar, OpenAlex,
            Hugging Face)
         -> dedupe candidates
         -> classify_evidence via Claude
-        -> InvestigateResponse
+        -> InvestigationResponse (status/summary/supports/contradicts/
+           qualifies/related/warnings)
 
 MVP simplification (documented, not accidental): rather than generating
 separate support/contradiction/qualification/related-work queries per
 docs/business-logic.md section 3, this uses the highlighted text itself as
-a single query across all providers. That's a real simplification made for
-speed — Claude still does the actual supporting/contradicting/qualifying
-classification once results come back, which is where the accuracy matters
-most. Multi-intent query generation is a documented upgrade path, not
-required for a working prototype.
+a single query across all providers. Claude still does the actual
+supporting/contradicting/qualifying classification once results come back,
+which is where the accuracy matters most.
 """
 
 import asyncio
 import re
 
 from app.llm import classify_evidence
-from app.models import EvidenceItem, InvestigateRequest, InvestigateResponse
+from app.models import EvidenceItem, InvestigationRequest, InvestigationResponse
 from app.providers import arxiv, huggingface, openalex, semantic_scholar
 from app.providers.base import NormalizedPaper
 
@@ -34,14 +34,10 @@ from app.providers.base import NormalizedPaper
 # latency bounded even if every provider returns a full page of results.
 _MAX_CANDIDATES_FOR_LLM = 12
 
-_LLM_FAILURE_RESULT: dict = {
-    "summary": "Evidence classification is temporarily unavailable — the "
-    "research providers were searched, but the summarization step failed.",
-    "supporting": [],
-    "contradicting": [],
-    "qualifying": [],
-    "related": [],
-}
+_LLM_FAILURE_SUMMARY = (
+    "Evidence classification is temporarily unavailable — the research "
+    "providers were searched, but the summarization step failed."
+)
 
 
 def _dedupe(papers: list[NormalizedPaper]) -> list[NormalizedPaper]:
@@ -69,26 +65,44 @@ def _dedupe(papers: list[NormalizedPaper]) -> list[NormalizedPaper]:
     return result
 
 
+def _valid_url(url: str | None) -> bool:
+    """The extension client rejects any evidence item whose url isn't an
+    absolute http(s) URL without embedded credentials (see api.mjs
+    validateInvestigation). Drop items that wouldn't pass that check rather
+    than let the whole response be rejected client-side.
+    """
+    if not url:
+        return False
+    return bool(re.match(r"^https?://[^@]*$", url)) and "://" in url and "@" not in url
+
+
 def _coerce_evidence_items(raw_items) -> list[EvidenceItem]:
     """Defensively convert the LLM's raw evidence list into EvidenceItem
-    models, skipping anything malformed rather than raising — an LLM
-    response with an unexpected shape should degrade the feature, not
-    crash the request.
+    models, skipping anything malformed (missing title, missing/invalid
+    url) rather than raising or violating the client's response contract.
     """
     items: list[EvidenceItem] = []
     for raw in raw_items or []:
         if not isinstance(raw, dict):
             continue
         title = raw.get("title")
-        if not title:
+        url = raw.get("url")
+        if not title or not _valid_url(url):
             continue
-        items.append(
-            EvidenceItem(title=title, url=raw.get("url"), why=raw.get("why") or "")
-        )
+        explanation = raw.get("why") or raw.get("explanation") or ""
+        if not explanation:
+            continue
+        items.append(EvidenceItem(title=title, url=url, explanation=explanation))
     return items
 
 
-async def run_investigation(payload: InvestigateRequest) -> InvestigateResponse:
+async def run_investigation(payload: InvestigationRequest) -> InvestigationResponse:
+    if payload.ai is not None:
+        # Custom OpenAI-compatible AI overrides aren't implemented yet.
+        # extension/BACKEND_HANDOFF.md explicitly allows rejecting this for
+        # now rather than requiring it — raised in app.main as a 422.
+        raise ValueError("custom_ai_not_supported")
+
     query = payload.highlight.strip()[:300]
 
     provider_results = await asyncio.gather(
@@ -100,18 +114,41 @@ async def run_investigation(payload: InvestigateRequest) -> InvestigateResponse:
     candidates = [paper for results in provider_results for paper in results]
     candidates = _dedupe(candidates)[:_MAX_CANDIDATES_FOR_LLM]
 
+    warnings: list[str] = []
     try:
         llm_result = await classify_evidence(
             claim=payload.highlight, context=payload.context, candidates=candidates
         )
     except Exception as exc:  # noqa: BLE001 - a live demo shouldn't 500 on an LLM hiccup
-        print(f"[investigate] classify_evidence failed: {exc}")
-        llm_result = dict(_LLM_FAILURE_RESULT)
+        print(f"[investigate] classify_evidence failed: {exc!r}")
+        llm_result = {
+            "summary": _LLM_FAILURE_SUMMARY,
+            "supporting": [],
+            "contradicting": [],
+            "qualifying": [],
+            "related": [],
+        }
+        warnings.append(_LLM_FAILURE_SUMMARY)
 
-    return InvestigateResponse(
-        summary=llm_result.get("summary", ""),
-        supporting=_coerce_evidence_items(llm_result.get("supporting")),
-        contradicting=_coerce_evidence_items(llm_result.get("contradicting")),
-        qualifying=_coerce_evidence_items(llm_result.get("qualifying")),
-        related=_coerce_evidence_items(llm_result.get("related")),
+    supports = _coerce_evidence_items(llm_result.get("supporting"))
+    contradicts = _coerce_evidence_items(llm_result.get("contradicting"))
+    qualifies = _coerce_evidence_items(llm_result.get("qualifying"))
+    related = _coerce_evidence_items(llm_result.get("related"))
+
+    has_evidence = any([supports, contradicts, qualifies, related])
+    status = "complete" if has_evidence else "insufficient_evidence"
+
+    summary = llm_result.get("summary") or (
+        "No supporting, contradicting, qualifying, or related evidence was "
+        "found for this claim among the searched sources."
+    )
+
+    return InvestigationResponse(
+        status=status,
+        summary=summary,
+        supports=supports,
+        contradicts=contradicts,
+        qualifies=qualifies,
+        related=related,
+        warnings=warnings,
     )

@@ -185,13 +185,24 @@ earlier items build yet.
       it to sort results into supporting / contradicting / qualifying /
       related (`backend/app/llm.py::classify_evidence`)
 - [x] Generate a concise summary with links back to each source
-- [x] Define the response shape sent back to the extension: `{ summary,
-      supporting, contradicting, qualifying, related }`
-      (`backend/app/models.py`)
+- [x] Define the response shape sent back to the extension — **superseded
+      by `extension/BACKEND_HANDOFF.md`'s already-implemented client
+      contract**, not the draft originally sketched here. Actual endpoint
+      is `POST /v1/investigations` (not `/investigate`), request/response
+      use camelCase with a `schemaVersion` and `capture` wrapper, and the
+      response is `{ schemaVersion, status, summary, supports,
+      contradicts, qualifies, related, warnings }` (note: `supports`/
+      `contradicts`/`explanation`, not the draft's `supporting`/
+      `conflicting`/`why`) — see `backend/app/models.py`. Also implements
+      the contract's optional `Authorization: Bearer` backend token and
+      explicitly rejects a custom `ai` override with `422` (per the
+      contract's own allowed fallback) rather than building that adapter
+      now.
 - [x] Handle empty/low-quality search results gracefully (no evidence
       found) — verified live: with every provider failing (rate-limited/
-      unauthenticated in testing) the endpoint still returns `200` with a
-      "temporarily unavailable" summary instead of crashing
+      unauthenticated in testing) the endpoint still returns `200` with
+      `status: "insufficient_evidence"` and a warning, matching the
+      contract, instead of crashing
 
 ## 8. Sidebar UI
 
@@ -240,11 +251,16 @@ by hand.
 - [x] Document the run process in README
 - [ ] Verify the extension can talk to the containerized backend
       end-to-end — **not verified**: this sandbox has no `docker` binary,
-      so `docker build`/`docker compose up` couldn't actually be run here,
-      and the extension doesn't exist yet either. The backend itself *was*
-      verified running directly (venv + uvicorn) with real `/health`,
-      `/investigate`, and `/chat` calls — someone with Docker and the
-      extension needs to confirm the containerized path specifically
+      so `docker build`/`docker compose up` couldn't actually be run here.
+      The backend itself *was* verified running directly (venv + uvicorn)
+      against the real extension contract — `GET /health`, `POST
+      /v1/investigations` (using the exact example payload from
+      `extension/BACKEND_HANDOFF.md`), and `POST /v1/chat` — plus the
+      optional `BACKEND_TOKEN` auth and the custom-`ai`-override 422
+      rejection, all confirmed live. Someone with Docker and the loaded
+      extension still needs to confirm the containerized + real-browser
+      path specifically (the joint acceptance checklist in
+      `extension/BACKEND_HANDOFF.md`)
 
 ## 11. Backend tech stack
 
@@ -255,7 +271,8 @@ text extraction, and LLM calls without a second runtime.
 
 - [x] Language: Python
 - [x] Web framework: **FastAPI** — verified running (`GET /health`,
-      `POST /investigate`, `POST /chat` all confirmed live)
+      `POST /v1/investigations`, `POST /v1/chat` all confirmed live,
+      matching `extension/BACKEND_HANDOFF.md`'s contract)
 - [x] HTTP client: **httpx** (async, so calls to arXiv/Semantic Scholar/
       OpenAlex/Hugging Face/Claude don't block each other or the throttle
       queue from item 5)
@@ -331,10 +348,14 @@ for PDF, deferred as a stretch goal.
 - [x] Call the LLM with the question + full paper text, instructed to
       answer only from that content and say so if the answer isn't present
       (`backend/app/llm.py::answer_question`, wired via `app/chat.py` and
-      `POST /chat` — verified live, degrades to a clean non-crashing
-      response when the LLM call itself fails)
-- [x] Define the request/response shape: `{ question, page_content,
-      page_metadata }` → `{ answer, grounded: bool }`
+      `POST /v1/chat` — verified live, degrades to a clean non-crashing
+      response when the LLM call itself fails). Not called by the
+      extension yet (proposed contract in `extension/BACKEND_HANDOFF.md`),
+      but implemented ahead of that milestone
+- [x] Define the request/response shape — matches
+      `extension/BACKEND_HANDOFF.md`'s proposed `/v1/chat` contract:
+      `{ schemaVersion, question, pageContent, pageMetadata }` →
+      `{ schemaVersion, answer, grounded, warnings }`
 
 ## 14. Chat with Paper: sidebar UI
 

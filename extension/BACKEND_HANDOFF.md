@@ -303,16 +303,42 @@ truncation. PDF extraction/highlight mapping is separate stretch work.
 
 ## Joint acceptance checklist
 
+Status from the backend side (2026-09-12): the backend now implements this
+exact contract (`GET /health`, `POST /v1/investigations`, `POST /v1/chat`,
+optional bearer auth, explicit 422 for `ai`) and was verified with direct
+HTTP calls using this doc's own example payloads. It has **not** been
+verified from the loaded extension, through Docker, or against a real
+paper/API key — that needs someone with Docker and the unpacked extension.
+
 - [ ] Health succeeds from the loaded extension at the documented local URL.
-- [ ] Optional backend token works; wrong token produces 401 without secret echoes.
-- [ ] Default backend AI config accepts a claim without any client AI override.
+      (Backend-only: `GET /health` returns `{"status":"ok","apiVersion":"1.0"}` ✓)
+- [x] Optional backend token works; wrong token produces 401 without secret
+      echoes. (Verified via curl: no header / wrong token → 401; correct
+      token → 200; unset `BACKEND_TOKEN` → open, no header required.)
+- [x] Default backend AI config accepts a claim without any client AI
+      override. (Verified: the example request without `ai` is accepted
+      and processed — response content itself needs a real
+      `ANTHROPIC_API_KEY` to evaluate, which this sandbox doesn't have.)
 - [ ] Paragraph/section and explicit highlight fallback arrive unchanged.
-- [ ] Valid results render in all four categories and source links open correctly.
-- [ ] Empty/weak research uses insufficient evidence; partial failures show warnings.
-- [ ] Invalid inputs, unreachable providers, rate limits, timeout and cancel tested.
-- [ ] Custom AI override is supported with per-request isolation, or explicitly rejected.
-- [ ] Host AI connectivity from Docker is documented and tested if custom local AI is enabled.
-- [ ] Real HTML paper investigation passes end to end. PDFs do not block completion.
+      (Extension-side capture logic — not backend-testable in isolation.)
+- [ ] Valid results render in all four categories and source links open
+      correctly. (Rendering is extension-side.)
+- [x] Empty/weak research uses insufficient evidence; partial failures show
+      warnings. (Verified: with providers rate-limited/unavailable and no
+      real LLM key, response was `status: "insufficient_evidence"` with a
+      populated `warnings` array, not a crash or fake result.)
+- [x] Invalid inputs, unreachable providers, rate limits, timeout and cancel
+      tested. (Missing required fields → 422; live provider 429s from
+      arXiv/Semantic Scholar handled without failing the request.
+      Client-initiated cancel not backend-testable in isolation.)
+- [x] Custom AI override is supported with per-request isolation, or
+      explicitly rejected. (Explicitly rejected: any request with an `ai`
+      field returns 422, per this doc's own allowed fallback.)
+- [ ] Host AI connectivity from Docker is documented and tested if custom
+      local AI is enabled. (N/A — custom AI is rejected, not implemented.)
+- [ ] Real HTML paper investigation passes end to end. PDFs do not block
+      completion. (Needs a real `ANTHROPIC_API_KEY`, the loaded extension,
+      and ideally the Docker path — none available in this environment.)
 
 For frontend-only validation, see `extension/README.md` and
 `extension/tests/browser-smoke.mjs`. Share this document with Ruben; no message
