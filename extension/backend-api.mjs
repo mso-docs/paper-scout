@@ -21,9 +21,9 @@ export function safeSourceUrl(value) {
 }
 export function validateChat(data) {
   if (!data || data.schemaVersion !== '1.0' || typeof data.answer !== 'string' || !data.answer.trim() || typeof data.grounded !== 'boolean') throw new Error('Invalid chat response.');
-  // The MVP backend uses this same fallback for provider/parse failures.
-  if (data.answer === 'Something went wrong answering this question.') throw new Error('The backend could not answer. Check its AI configuration and try again.');
   validateWarnings(data.warnings);
+  // The MVP backend uses this same fallback for provider/parse failures.
+  if (data.answer === 'Something went wrong answering this question.') throw new Error(data.warnings.join(' ') || 'The backend could not answer. Check its AI configuration and try again.');
   return data;
 }
 export function backendRequest(path, connection, options) {

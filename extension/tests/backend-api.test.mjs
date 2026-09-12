@@ -34,3 +34,9 @@ test('chat validates schemaVersion, grounding and warnings, and distinguishes ba
   assert.throws(() => validateChat({ schemaVersion: '1.0', warnings: ['x'.repeat(2001)], answer: 'Answer', grounded: true }), /Invalid backend warnings/);
   assert.throws(() => backendRequest('/v1/chat', { settings: { aiEnabled: true } }), /custom AI/);
 });
+test('chat displays actionable AI warnings on provider failure', () => {
+  assert.throws(() => validateChat({
+    schemaVersion: '1.0', answer: 'Something went wrong answering this question.',
+    grounded: false, warnings: ['OpenAI rejected the API key. Check backend/.env.'],
+  }), /rejected the API key/);
+});

@@ -1,9 +1,6 @@
 """Chat with Paper orchestration (plan.md item 13).
 
-Thin wrapper around app.llm.answer_question, matching the proposed /v1/chat
-contract in extension/BACKEND_HANDOFF.md ("Future chat contract — not
-called by this extension yet"). The extension doesn't send this request
-yet, but the shape is implemented now so the backend is ready when it does.
+Called by the extension sidebar through the versioned /v1/chat contract.
 
 The actual paper-identification and content-retrieval work (item 13's
 "identify the current paper" / "retrieve paper content" steps) happens on
@@ -12,7 +9,7 @@ captured. This module's job is just to call the LLM and shape the
 response, without crashing the request if the LLM call itself fails.
 """
 
-from app.llm import answer_question
+from app.llm import ai_error_message, answer_question
 from app.models import ChatRequest, ChatResponse
 
 _LLM_FAILURE_ANSWER = "Something went wrong answering this question."
@@ -31,11 +28,11 @@ async def answer_chat_question(payload: ChatRequest) -> ChatResponse:
             page_metadata=payload.page_metadata.model_dump(by_alias=True),
         )
     except Exception as exc:  # noqa: BLE001 - a live demo shouldn't 500 on an LLM hiccup
-        print(f"[chat] answer_question failed: {exc!r}")
+        print(f"[chat] answer_question failed: {type(exc).__name__}")
         return ChatResponse(
             answer=_LLM_FAILURE_ANSWER,
             grounded=False,
-            warnings=[_LLM_FAILURE_ANSWER],
+            warnings=[ai_error_message(exc)],
         )
 
     if not isinstance(result, dict):

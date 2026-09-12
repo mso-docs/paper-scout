@@ -25,7 +25,7 @@ which is where the accuracy matters most.
 import asyncio
 import re
 
-from app.llm import classify_evidence
+from app.llm import ai_error_message, classify_evidence
 from app.models import EvidenceItem, InvestigationRequest, InvestigationResponse
 from app.providers import arxiv, huggingface, openalex, semantic_scholar
 from app.providers.base import NormalizedPaper
@@ -120,7 +120,7 @@ async def run_investigation(payload: InvestigationRequest) -> InvestigationRespo
             claim=payload.highlight, context=payload.context, candidates=candidates
         )
     except Exception as exc:  # noqa: BLE001 - a live demo shouldn't 500 on an LLM hiccup
-        print(f"[investigate] classify_evidence failed: {exc!r}")
+        print(f"[investigate] classify_evidence failed: {type(exc).__name__}")
         llm_result = {
             "summary": _LLM_FAILURE_SUMMARY,
             "supporting": [],
@@ -128,7 +128,7 @@ async def run_investigation(payload: InvestigationRequest) -> InvestigationRespo
             "qualifying": [],
             "related": [],
         }
-        warnings.append(_LLM_FAILURE_SUMMARY)
+        warnings.append(ai_error_message(exc))
 
     supports = _coerce_evidence_items(llm_result.get("supporting"))
     contradicts = _coerce_evidence_items(llm_result.get("contradicting"))

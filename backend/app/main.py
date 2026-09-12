@@ -11,7 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.chat import answer_chat_question
 from app.config import settings
 from app.investigate import run_investigation
-from app.models import ChatRequest, ChatResponse, InvestigationRequest, InvestigationResponse
+from app.models import (
+    ChatRequest,
+    ChatResponse,
+    InvestigationRequest,
+    InvestigationResponse,
+)
 
 app = FastAPI(title="Paper Scout Backend")
 
@@ -72,9 +77,7 @@ async def investigate(payload: InvestigationRequest) -> InvestigationResponse:
 )
 async def chat(payload: ChatRequest) -> ChatResponse:
     """Chat with Paper: answer a question grounded only in the current
-    paper's content. See app.chat.answer_chat_question. Not called by the
-    extension yet (proposed contract) — implemented so the backend is
-    ready when it is."""
+    paper's content. Called by the extension sidebar."""
     try:
         return await answer_chat_question(payload)
     except ValueError as exc:

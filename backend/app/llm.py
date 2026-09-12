@@ -1,37 +1,10 @@
-"""Claude API integration for Paper Scout.
+"""Provider-selected AI calls for evidence classification and grounded paper Q&A.
 
-This module is the only place in the backend that talks to Anthropic's
-Claude API. It implements the two LLM-driven business-logic steps described
-in docs/business-logic.md:
-
-- `classify_evidence` — "6. Evidence Classification" (Claim Investigator):
-  given a claim, its surrounding context, and a list of candidate papers
-  found by the research providers, ask Claude to sort each candidate into
-  supporting / contradicting / qualifying / related (or silently drop it if
-  it's irrelevant), with a one-sentence "why it matters" for each and an
-  overall summary.
-- `answer_question` — "Chat with Paper Business Logic" sections 3-5: given a
-  question and the full text of the paper currently being read, ask Claude
-  to answer using only that text, and to say so explicitly if the answer
-  isn't in the paper rather than guessing.
-
-Calls are made via raw HTTP (`httpx`) directly against
-`POST https://api.anthropic.com/v1/messages`, per this module's design (the
-rest of the backend's provider clients are being built independently, and
-this module intentionally has no dependency on the `anthropic` Python SDK).
-
-Every call is preceded by `await throttle("anthropic")` so Claude API usage
-respects the shared per-source rate limit in `app.rate_limits`.
-
-Both public functions are defensive about the model's output: Claude is
-instructed to respond with strict JSON, but if it ever returns something
-that isn't valid JSON (extra prose, truncation, etc.) we catch the parse
-failure and return a safe fallback dict rather than raising — a malformed
-LLM response should degrade the feature, not crash the request.
+Uses raw HTTPX requests to OpenAI Responses or Anthropic Messages. Provider
+errors and malformed output become safe, actionable warnings at the API boundary.
 """
 
 import json
-import os
 
 import httpx
 
@@ -41,7 +14,7 @@ from app.throttle import throttle
 
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 # LLM calls are much slower than typical REST calls (the model has to read a
 # claim/paper plus several candidate abstracts, or an entire paper's full
@@ -59,18 +32,15 @@ _NO_CANDIDATES_RESULT: dict = {
     "related": [],
 }
 
-_CLASSIFY_PARSE_FAILURE_RESULT: dict = {
-    "summary": "Unable to parse evidence classification.",
-    "supporting": [],
-    "contradicting": [],
-    "qualifying": [],
-    "related": [],
-}
 
-_ANSWER_PARSE_FAILURE_RESULT: dict = {
-    "answer": "Something went wrong answering this question.",
-    "grounded": False,
-}
+class AIError(Exception):
+    """An actionable message safe to display without exposing provider payloads."""
+
+
+def ai_error_message(exc: Exception) -> str:
+    if isinstance(exc, AIError):
+        return str(exc)
+    return "The AI request failed unexpectedly. Check the backend logs and try again."
 
 
 def _headers() -> dict:
@@ -104,7 +74,7 @@ async def _call_claude(system: str, user_message: str) -> str:
     await throttle("anthropic")
 
     payload = {
-        "model": ANTHROPIC_MODEL,
+        "model": settings.anthropic_model,
         "max_tokens": _MAX_TOKENS,
         "system": system,
         "messages": [{"role": "user", "content": user_message}],
@@ -116,6 +86,115 @@ async def _call_claude(system: str, user_message: str) -> str:
         )
         response.raise_for_status()
         return _extract_text(response.json())
+
+
+async def _call_openai(system: str, user_message: str) -> str:
+    await throttle("openai")
+    async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_S) as client:
+        response = await client.post(
+            OPENAI_RESPONSES_URL,
+            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            json={
+                "model": settings.openai_model,
+                "instructions": system,
+                "input": user_message,
+                "max_output_tokens": _MAX_TOKENS,
+                "store": False,
+                "text": {"format": {"type": "json_object"}},
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+    if data.get("status") != "completed":
+        raise AIError(
+            "OpenAI returned an incomplete answer. Try a shorter question or paper."
+        )
+    parts = []
+    for item in data.get("output", []):
+        if item.get("type") != "message":
+            continue
+        for block in item.get("content", []):
+            if block.get("type") == "refusal":
+                raise AIError(
+                    "OpenAI declined this request. Try rephrasing the question."
+                )
+            if block.get("type") == "output_text":
+                parts.append(block.get("text", ""))
+    return "".join(parts)
+
+
+async def _call_model(system: str, user_message: str) -> str:
+    provider = settings.llm_provider
+    if provider not in {"openai", "anthropic"}:
+        raise AIError("Set LLM_PROVIDER to openai or anthropic in backend/.env.")
+    label = "OpenAI" if provider == "openai" else "Anthropic"
+    key = getattr(settings, f"{provider}_api_key")
+    if not key or not key.strip():
+        raise AIError(
+            f"Set {provider.upper()}_API_KEY in backend/.env and restart the backend."
+        )
+    try:
+        if provider == "openai":
+            return await _call_openai(system, user_message)
+        return await _call_claude(system, user_message)
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        messages = {
+            401: "rejected the API key. Check the key in backend/.env and restart the backend.",
+            403: "denied access. Check your project permissions and model access.",
+            404: "could not find the model. Check the configured model name and access.",
+            429: "hit a rate or quota limit. Check API billing/limits, then retry.",
+            400: "rejected the request. Check model compatibility and paper length.",
+        }
+        detail = messages.get(status, "is temporarily unavailable. Try again shortly.")
+        raise AIError(f"{label} {detail}") from None
+    except httpx.TimeoutException:
+        raise AIError(
+            f"{label} timed out. Try again or use a shorter paper."
+        ) from None
+    except httpx.RequestError:
+        raise AIError(
+            f"Could not connect to {label}. Check the backend network."
+        ) from None
+    except (ValueError, TypeError, AttributeError):
+        raise AIError(
+            f"{label} returned an invalid response. Try again."
+        ) from None
+
+
+def _parse_result(text: str, *, chat: bool = False) -> dict:
+    try:
+        result = json.loads(text)
+        if not isinstance(result, dict):
+            raise TypeError
+        if chat:
+            if (
+                not isinstance(result.get("answer"), str)
+                or not result["answer"].strip()
+            ):
+                raise ValueError
+            if type(result.get("grounded")) is not bool:
+                raise ValueError
+        else:
+            if (
+                not isinstance(result.get("summary"), str)
+                or not result["summary"].strip()
+            ):
+                raise ValueError
+            for category in ("supporting", "contradicting", "qualifying", "related"):
+                if not isinstance(result.get(category), list):
+                    raise TypeError
+                for item in result[category]:
+                    if not isinstance(item, dict) or any(
+                        not isinstance(item.get(field), str)
+                        for field in ("title", "url", "why")
+                    ):
+                        raise ValueError
+        return result
+    except (ValueError, TypeError):
+        raise AIError(
+            "The AI returned a malformed answer. Try the request again."
+        ) from None
 
 
 def _format_candidate(index: int, paper: NormalizedPaper) -> str:
@@ -154,9 +233,7 @@ async def classify_evidence(
     "handle empty/low-quality search results gracefully" behavior — and a
     dict indicating no evidence was found is returned immediately.
 
-    If Claude's response can't be parsed as JSON, a safe fallback dict with
-    empty categories is returned instead of raising, so a malformed LLM
-    response degrades the feature rather than crashing the request.
+    Invalid output raises AIError for the orchestration layer to display.
     """
     if not candidates:
         return dict(_NO_CANDIDATES_RESULT)
@@ -220,17 +297,9 @@ async def classify_evidence(
         "the JSON object only."
     )
 
-    text = await _call_claude(system, user_message)
+    text = await _call_model(system, user_message)
 
-    try:
-        result = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        return dict(_CLASSIFY_PARSE_FAILURE_RESULT)
-
-    if not isinstance(result, dict):
-        return dict(_CLASSIFY_PARSE_FAILURE_RESULT)
-
-    return result
+    return _parse_result(text)
 
 
 async def answer_question(
@@ -254,8 +323,7 @@ async def answer_question(
     Paper Context") would need to be implemented upstream of this function,
     not inside it.
 
-    If Claude's response can't be parsed as JSON, a safe fallback dict is
-    returned instead of raising.
+    Invalid output raises AIError for the orchestration layer to display.
     """
     system = (
         "You are Paper Scout's Chat with Paper assistant. You answer a "
@@ -276,7 +344,7 @@ async def answer_question(
         '  "grounded": true or false\n'
         "}\n"
         '"grounded" must be false whenever you could not answer the '
-        "question from the paper's content (in that case, \"answer\" "
+        'question from the paper\'s content (in that case, "answer" '
         "should explain that the paper doesn't contain this information), "
         "and true whenever your answer is actually drawn from the paper."
     )
@@ -291,14 +359,6 @@ async def answer_question(
         "JSON object only."
     )
 
-    text = await _call_claude(system, user_message)
+    text = await _call_model(system, user_message)
 
-    try:
-        result = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        return dict(_ANSWER_PARSE_FAILURE_RESULT)
-
-    if not isinstance(result, dict):
-        return dict(_ANSWER_PARSE_FAILURE_RESULT)
-
-    return result
+    return _parse_result(text, chat=True)

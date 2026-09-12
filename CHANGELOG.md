@@ -10,6 +10,10 @@ tracked under [Unreleased].
 
 ### Fixed
 
+- AI failures now provide actionable warnings for missing/invalid keys, model
+  access, rate/quota limits, network failures, and malformed responses. The
+  sidebar displays backend chat error details instead of replacing them with
+  a generic message; invalid grounding values are rejected.
 - Updated sidebar investigation/chat requests to the running backend’s
   `/v1/investigations` and `/v1/chat` routes and versioned camelCase payloads,
   fixing 404s after the backend contract changed. Adapted evidence categories,
@@ -27,6 +31,19 @@ tracked under [Unreleased].
 
 ### Added
 
+- OpenAI Responses API support for Chat with Paper and evidence classification,
+  selected through `LLM_PROVIDER=openai`, `OPENAI_API_KEY`, and `OPENAI_MODEL`
+  in `backend/.env`. Defaults to `gpt-4.1-mini` for OpenAI, uses JSON mode with
+  output validation, and adds per-provider request pacing. Anthropic remains
+  supported and is the default when `LLM_PROVIDER` is omitted.
+- `python -m app.smoke_ai` live smoke test, run from `backend/`, making three
+  billable AI requests to check grounded answers, absent information, and
+  classification of a supplied evidence source without search-provider calls.
+- Backend regression tests for provider selection, both AI adapters, response
+  validation, safe error handling, and API responses, plus a sidebar error-detail
+  regression test. Validation: 22 backend tests, extension tests, lint checks,
+  and `git diff --check` passed. Live OpenAI verification remains pending a
+  configured API key.
 - Chrome Side Panel UI for Steps 8 and 14 with Investigate / Chat with Paper
   modes, selection/context preview, four evidence categories and source links,
   empty-result notices, loading, cancellation, timeouts and error states.
@@ -147,6 +164,10 @@ tracked under [Unreleased].
   and `validateChat` now checks `schemaVersion` and `warnings` shape too.
   Re-verified against real headless Chromium after merging (21 unit tests,
   both smoke tests passing).
+- Updated the environment example and root/extension READMEs with OpenAI setup,
+  smoke-test commands, backend-versus-provider token guidance, and environment
+  loading/restart behavior. Corrected stale documentation describing the
+  implemented context-menu trigger and sidebar chat integration as pending.
 - Extension version is 0.3.0, adds `sidePanel` permission/default panel and requires
   Chrome 116+. The original popup remains separate and links to the sidebar.
 - Updated root/extension READMEs, extension delivery checklist and backend handoff

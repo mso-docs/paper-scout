@@ -19,6 +19,8 @@ changes are needed.
 """
 
 RATE_LIMITS: dict[str, dict[str, int]] = {
+    # Local pacing default; actual OpenAI limits depend on model/account tier.
+    "openai": {"requests": 30, "interval_ms": 60000},
     # arXiv's terms of use ask for max 1 request per 3 seconds.
     "arxiv": {"requests": 1, "interval_ms": 3000},
     # Semantic Scholar standard tier, with an API key: 1 request/sec.

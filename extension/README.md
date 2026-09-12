@@ -13,7 +13,7 @@ Load `extension/` unpacked in Chrome/Chromium 116+; no build is required.
    not established by the paper. Backend failures appear separately as errors.
 
 Start the backend using the root README instructions and configure its
-`ANTHROPIC_API_KEY`. The sidebar uses `/v1/investigations` and `/v1/chat` with versioned camelCase
+`LLM_PROVIDER` and the corresponding `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. The sidebar uses `/v1/investigations` and `/v1/chat` with versioned camelCase
 fields, matching `backend/app/models.py`. The capture/settings popup and sidebar now use the same versioned backend
 API. Save connection and accept Chrome’s host prompt before submitting; merely
 filling in a URL does not grant access. Custom AI settings
@@ -55,7 +55,7 @@ safe/missing source links, no evidence, grounded/ungrounded chat history,
 loading/cancellation/errors, navigation reset, and empty/oversized extraction.
 
 For live chat verification, start the actual backend at `127.0.0.1:8788` with
-valid Anthropic credentials, then run:
+valid credentials for the configured AI provider, then run:
 
 ```sh
 node extension/tests/sidebar-smoke.mjs --real-backend
@@ -67,8 +67,8 @@ Anthropic returned 401 with the available configuration. Successful live-answer
 acceptance remains unchecked in the plan. The fixture-based browser checks
 verify both answer types independently of provider availability.
 
-Step 9’s selection context menu, Docker verification, PDF support, broader
-publisher coverage, and background persistence remain separate work.
+Step 9’s selection context menu is implemented. Docker verification, PDF support,
+broader publisher coverage, and background persistence remain separate work.
 
 ## Files
 

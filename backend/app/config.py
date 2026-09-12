@@ -8,12 +8,7 @@ Other modules should do:
 
     from app.config import settings
 
-Note: `anthropic_api_key` is required for the app to actually function (it's
-used for evidence classification and summary generation), but it is kept
-optional here at load time so importing this module never raises just
-because a `.env` file hasn't been created yet (e.g. in a fresh venv or CI).
-Code that actually calls the Anthropic API should check
-`settings.anthropic_api_key` and fail there if it's missing.
+Provider credentials are checked when making an AI request, not at import time.
 """
 
 import os
@@ -38,8 +33,10 @@ class Settings:
     """Runtime configuration, sourced from environment variables."""
 
     def __init__(self) -> None:
-        # Required for the app to function, but not enforced at import time
-        # (see module docstring) — may be None if unset.
+        self.llm_provider = (_get_optional("LLM_PROVIDER") or "anthropic").lower()
+        self.openai_api_key = _get_optional("OPENAI_API_KEY")
+        self.openai_model = _get_optional("OPENAI_MODEL") or "gpt-4.1-mini"
+        self.anthropic_model = _get_optional("ANTHROPIC_MODEL") or "claude-sonnet-5"
         self.anthropic_api_key: str | None = _get_optional("ANTHROPIC_API_KEY")
 
         # Optional third-party API keys.

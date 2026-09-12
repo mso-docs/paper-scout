@@ -45,7 +45,7 @@ Browser-accessible PDF support is a stretch goal if time and implementation comp
 
 ## Status
 
-Steps 3–4 provide HTML claim capture and metadata in the toolbar popup. Steps 8, 14, and 15 add a shared Investigate / Chat with Paper sidebar wired to the implemented backend (`POST /v1/investigations`, `POST /v1/chat`). Open **Open sidebar / Chat with Paper** from the popup, save the backend connection, then capture a claim or ask a question without highlighting. Sidebar behavior is verified in Chromium; the live arXiv-to-backend request worked, but successful live AI verification awaits valid Anthropic credentials (the current configuration returned 401). The Step 9 context-menu trigger remains planned. See [`docs/plan.md`](docs/plan.md) and [extension documentation](extension/README.md).
+Steps 3–4 provide HTML claim capture and metadata in the toolbar popup. Steps 8, 14, and 15 add a shared Investigate / Chat with Paper sidebar wired to the implemented backend (`POST /v1/investigations`, `POST /v1/chat`). Open **Open sidebar / Chat with Paper** from the popup, save the backend connection, then capture a claim or ask a question without highlighting. Sidebar behavior is verified in Chromium; the live arXiv-to-backend request worked, but successful live AI verification awaits valid provider credentials (the previous Anthropic configuration returned 401). The Step 9 “Scout this claim” context-menu trigger is implemented. See [`docs/plan.md`](docs/plan.md) and [extension documentation](extension/README.md).
 
 ## Getting started
 
@@ -145,7 +145,7 @@ Run `node --test extension/tests/*.test.cjs extension/tests/*.test.mjs` with Nod
 
 ## Running the backend locally
 
-1. Copy `backend/.env.example` to `backend/.env` and fill in `ANTHROPIC_API_KEY` (required) and any optional provider keys (`SEMANTIC_SCHOLAR_API_KEY`, `OPENALEX_API_KEY`, `HUGGINGFACE_API_KEY`).
+1. If `backend/.env` does not exist, copy `backend/.env.example` to it. Choose `LLM_PROVIDER=openai` and set `OPENAI_API_KEY`, or choose `anthropic` and set `ANTHROPIC_API_KEY`. Optional search-provider keys are documented in the example. Edit an existing `.env` instead of overwriting it.
 2. With Docker:
    ```
    cd backend
@@ -157,7 +157,67 @@ Run `node --test extension/tests/*.test.cjs extension/tests/*.test.mjs` with Nod
    cd backend
    uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
    ```
-4. Check it's up: `curl http://localhost:8787/health` → `{"status": "ok"}`.
+4. Check it's up: `curl http://localhost:8787/health` → `{"status":"ok","apiVersion":"1.0"}`. If `BACKEND_TOKEN` is set, send `Authorization: Bearer <your-backend-token>`. Health checks do not call the AI.
+
+## Testing with an OpenAI key
+
+Edit **`backend/.env`** (the root `.env` is not loaded by the backend):
+
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-key-here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+The backend uses OpenAI's Responses API with JSON mode and validates the output.
+The default model supports this API; you can select another compatible model
+available to your project. See the [OpenAI quickstart](https://developers.openai.com/api/docs/quickstart)
+and [structured output guidance](https://developers.openai.com/api/docs/guides/structured-outputs).
+Keep provider keys in the backend. The extension's backend token is separate.
+Restart the backend after changing `.env`; existing process environment variables
+take precedence. Anthropic remains supported with `LLM_PROVIDER=anthropic`.
+
+From the repository root, run the live AI smoke test:
+
+```sh
+source .venv/bin/activate
+cd backend
+python -m app.smoke_ai
+```
+
+This makes **three billable AI requests** using synthetic paper text: an answer
+present in the paper, a question whose answer is absent, and evidence
+classification with a supplied source. It exits unsuccessfully if a check fails.
+It does not need a running server or search-provider keys. These are basic smoke
+checks, not an evaluation of scientific reliability.
+
+Then start the backend on port 8787 as above, load/reload `extension/` in
+`chrome://extensions`, and open an HTML paper. In the sidebar, save
+`http://localhost:8787` as the backend URL and accept the host permission prompt.
+Leave custom AI overrides disabled. Ask about an explicitly stated finding,
+then about something absent from the page. Highlight a claim and investigate it;
+check the evidence links and explanations against the actual sources. Search
+provider availability can affect investigation results independently of the AI.
+
+The existing automated live browser check expects a backend on **8788**:
+
+```sh
+# Terminal 1, from backend/:
+uvicorn app.main:app --host 127.0.0.1 --port 8788
+# Terminal 2, from the repository root:
+node extension/tests/sidebar-smoke.mjs --real-backend
+```
+
+For offline regression tests (no paid requests), from the repository root:
+
+```sh
+PYTHONPATH=backend .venv/bin/python -m pytest backend/tests -q
+node --test extension/tests/*.test.cjs extension/tests/*.test.mjs
+```
+
+AI errors distinguish missing/invalid keys, model access, rate/quota limits,
+network failures, incomplete/refused responses, and malformed answers. Inspect
+`warnings` in API responses; HTTP 200 alone does not prove the AI succeeded.
 
 ## License
 
