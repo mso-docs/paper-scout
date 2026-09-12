@@ -351,10 +351,13 @@ Depending on the site and format, this may come from:
 -   available HTML version
 -   paper API/metadata source
 -   accessible full text
--   extracted PDF text
+-   extracted PDF text (stretch goal, not required for MVP)
 
 The MVP should prefer the simplest reliable method for supported sites
 rather than attempting universal PDF/site compatibility.
+HTML paper support is required; browser-accessible PDFs may be deferred if
+implementation is too costly. PDF support does not block the MVP success
+criteria below.
 
 ------------------------------------------------------------------------
 
@@ -486,7 +489,7 @@ variables.
 
 The MVP succeeds if a researcher can:
 
-1.  Open a supported research paper.
+1.  Open a supported research paper's HTML page.
 2.  Highlight a meaningful claim.
 3.  Select **Investigate Claim**.
 4.  Receive useful supporting, contradictory, qualifying, or related

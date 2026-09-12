@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Paper Scout</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon32.png" width="32" height="32" alt="">
+      <div><h1>Paper Scout</h1><p>Start with the page you're reading.</p></div>
+    </header>
+    <main>
+      <button id="capture" type="button">Capture current page</button>
+      <p id="status" role="status" aria-live="polite">Ready to capture this page's first heading.</p>
+      <section id="result" aria-label="Captured page" hidden>
+        <h2>First heading</h2>
+        <p id="heading"></p>
+        <dl>
+          <dt>Page title</dt><dd id="page-title"></dd>
+          <dt>Page URL</dt><dd id="page-url"></dd>
+        </dl>
+      </section>
+    </main>
+    <footer>Preview · Claim investigation and paper chat are coming next. Captures stay in this popup until it closes.</footer>
+  </body>
+</html>

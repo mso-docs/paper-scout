@@ -122,7 +122,8 @@ integration 7), and LLM calls all run in one runtime.
 -   **Schema/validation:** pydantic for request/response shapes.
 -   **Env loading:** python-dotenv, reading `backend/.env` (see
     `backend/.env.example`).
--   **PDF text extraction:** PyMuPDF (`fitz`); `pdfplumber` as a fallback
+-   **PDF text extraction (stretch goal):** defer this dependency unless PDF
+    work proceeds. Planned: PyMuPDF (`fitz`); `pdfplumber` as a fallback
     if layout-aware extraction (tables, columns) is needed later.
 
 This stack is also tracked as a checklist item in `plan.md` (item 11) —
@@ -441,7 +442,11 @@ LLM_API_KEY=
 
 ------------------------------------------------------------------------
 
-# 7. PDF Text Extraction
+# 7. PDF Text Extraction (Stretch Goal)
+
+The HTML-paper MVP does not depend on this integration. Attempt it after the
+HTML claim and chat flows work, if time and implementation complexity allow;
+otherwise retain this design for later and show an unsupported-PDF message.
 
 **Status: Stretch goal — deferred.** The initial prototype targets HTML
 paper pages only; there wasn't enough time to build PDF support alongside
@@ -543,8 +548,8 @@ latency and API usage.
 ## Chat with Paper
 
 Chat with Paper does not use the scholarly search providers above at
-all — it answers from the current paper's own content (see integration 7
-for how PDF content is obtained).
+all — it answers from the current HTML paper's own content. Integration 7
+describes optional PDF content extraction if that stretch goal proceeds.
 
 ``` text
 Question + current paper content

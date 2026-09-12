@@ -10,6 +10,12 @@ tracked under [Unreleased].
 
 ### Added
 
+- Manifest V3 extension foundation with toolbar popup, on-demand first-heading
+  capture, page title/URL, icons, and missing-heading/unsupported-page handling.
+- Dependency-free capture behavior tests, a local HTML fixture, unpacked loading
+  instructions, and an extension delivery checklist covering the remaining MVP
+  and deferred work.
+
 - `plan.md` — getting-started plan covering: research paper site selection,
   mission statement, Chrome extension bare bones, highlight+context capture
   (with a context-range slider: Highlight Only / Paragraph / Section),
@@ -23,6 +29,9 @@ tracked under [Unreleased].
 - README additions describing the MVP concept and scope.
 
 ### Changed
+
+- Made HTML papers the required MVP path and PDF support a stretch goal;
+  retained the PDF implementation plan without blocking MVP acceptance.
 
 - Consolidated two divergent `.env.example` files (a root-level one listing
   OpenAlex/Hugging Face, and a `backend/`-scoped one listing Claude/Semantic
