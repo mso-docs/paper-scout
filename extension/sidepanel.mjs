@@ -1,15 +1,32 @@
-import { loadSettings, saveContextRange, saveSettings, hostPattern } from './settings.mjs';
+import { loadSettings, saveContextRange, saveSettings, clearAiSettings, hostPattern } from './settings.mjs';
 import { investigationPayload, validateEvidence, validateChat, chatPayload, safeSourceUrl, backendRequest } from './backend-api.mjs';
 const $ = id => document.getElementById(id);
 let connection, capture, source, controller, busy = false, generation = 0;
 const message = (text, error = false) => { $('status').textContent = text; $('status').dataset.error = String(error); };
 const add = (parent, tag, text, className = '') => { const el = document.createElement(tag); el.textContent = text; el.className = className; parent.append(el); return el; };
 function actions() {
-  for (const id of ['capture', 'range', 'ask', 'clear-history', 'save-connection']) $(id).disabled = busy || !connection;
+  for (const id of ['capture', 'range', 'ask', 'clear-history', 'save-connection', 'clear-ai']) $(id).disabled = busy || !connection;
   $('investigate').disabled = busy || !connection || !capture?.highlight;
   $('cancel').hidden = !busy;
   $('chat-form').setAttribute('aria-busy', String(busy));
 }
+function showAiSettings() {
+  const settings = connection?.settings;
+  $('clear-ai').hidden = !(settings?.aiEnabled || settings?.aiBaseUrl || settings?.aiModel || connection?.secrets.aiApiKey);
+  $('ai-status').textContent = settings?.aiEnabled
+    ? 'A saved custom AI override is blocking sidebar requests. Clear it to use the backend’s AI configuration.'
+    : 'Uses the backend’s AI configuration.';
+  $('ai-status').dataset.error = String(Boolean(settings?.aiEnabled));
+}
+$('clear-ai').addEventListener('click', async () => {
+  $('clear-ai').disabled = true;
+  try {
+    connection = await clearAiSettings();
+    showAiSettings();
+    message('Custom AI settings and AI key cleared. Uses the backend’s AI configuration.');
+  } catch (error) { message(`Could not clear custom AI settings: ${error.message}`, true); }
+  finally { actions(); }
+});
 function preview() {
   $('highlight').textContent = capture?.highlight || 'Highlight a claim on the paper, then capture it.';
   const context = capture?.contexts[$('range').value];
@@ -51,7 +68,7 @@ async function run(label, task) {
   if (busy) return;
   busy = true; controller = new AbortController(); const signal = controller.signal; const version = generation;
   actions(); message(label);
-  try { connection = await loadSettings(); await task(signal); if (version === generation) message('Complete.'); }
+  try { connection = await loadSettings(); showAiSettings(); await task(signal); if (version === generation) message('Complete.'); }
   catch (error) {
     if (version === generation) {
       message(signal.aborted ? 'Request cancelled.' : error.message, true);
@@ -126,7 +143,8 @@ $('connection-form').addEventListener('submit', async event => {
     if (!allowed) throw new Error('Backend host access was declined.');
     const latest = await loadSettings();
     connection = await saveSettings({ ...latest.settings, backendUrl }, { ...latest.secrets, backendToken: $('backend-token').value });
-    $('connection-status').textContent = 'Connection saved. Uses the backend’s AI configuration.';
+    showAiSettings();
+    $('connection-status').textContent = connection.settings.aiEnabled ? 'Connection saved. Clear custom AI settings above to use this backend.' : 'Connection saved. Uses the backend’s AI configuration.';
   } catch (error) { $('connection-status').textContent = error.message; }
 });
 chrome.tabs.onActivated.addListener(async info => {
@@ -138,6 +156,7 @@ window.addEventListener('pagehide', () => controller?.abort());
 try {
   connection = await loadSettings(); $('backend-url').value = connection.settings.backendUrl; $('backend-token').value = connection.secrets.backendToken; $('range').value = connection.settings.contextRange;
 } catch { message('Could not load connection settings. Reload the extension.', true); }
+showAiSettings();
 preview();
 
 // Session storage bridges a cold sidebar start and an already-open sidebar.
@@ -164,6 +183,9 @@ async function receiveScout(job) {
   if ((await chrome.storage.session.get(scoutKey))[scoutKey]?.id === job.id) await chrome.storage.session.remove(scoutKey);
 }
 chrome.storage.onChanged.addListener((changes, area) => {
+  if ((area === 'local' && changes.settings) || changes.secrets) {
+    loadSettings().then(latest => { connection = latest; showAiSettings(); actions(); }).catch(error => message(error.message, true));
+  }
   if (area === 'session' && changes[scoutKey]?.newValue) receiveScout(changes[scoutKey].newValue).catch(error => message(error.message, true));
 });
 const initialScout = (await chrome.storage.session.get(scoutKey))[scoutKey];

@@ -96,6 +96,27 @@ try {
   assert.ok(panel, 'Popup opens real chrome.sidePanel without a selection');
   const ui = await attach(panel.targetId);
   await waitFor(ui, "document.querySelector('#ask') && !document.querySelector('#ask').disabled");
+  for (const rememberSecrets of [false, true]) {
+    await evaluate(ui, `(async () => {
+      const {settings} = await chrome.storage.local.get('settings');
+      await chrome.storage.session.set({secrets:{backendToken:'session-backend',aiApiKey:'session-ai'}});
+      await chrome.storage.local.set({settings:{...settings,rememberSecrets:${rememberSecrets},aiEnabled:true,aiBaseUrl:'invalid saved URL',aiModel:'old-model'},secrets:{backendToken:'local-backend',aiApiKey:'local-ai'}});
+    })()`);
+    await waitFor(ui, "!document.querySelector('#clear-ai').hidden && document.querySelector('#ai-status').textContent.includes('blocking')");
+    await evaluate(ui, "document.querySelector('#clear-ai').click()");
+    await waitFor(ui, "document.querySelector('#status').textContent.includes('AI key cleared') && document.querySelector('#clear-ai').hidden");
+    const saved = await evaluate(ui, `(async () => ({local:await chrome.storage.local.get(['settings','secrets']),session:await chrome.storage.session.get('secrets')}))()`);
+    assert.equal(saved.local.settings.aiEnabled, false);
+    assert.equal(saved.local.settings.aiBaseUrl, '');
+    assert.equal(saved.local.settings.aiModel, '');
+    assert.equal(saved.local.settings.backendUrl, base);
+    assert.equal(saved.local.settings.rememberSecrets, rememberSecrets);
+    assert.equal(saved.local.secrets.aiApiKey, '');
+    assert.equal(saved.session.secrets.aiApiKey, '');
+    assert.equal(saved.local.secrets.backendToken, 'local-backend');
+    assert.equal(saved.session.secrets.backendToken, 'session-backend');
+  }
+  console.log('PASS sidebar clears invalid custom AI settings and both AI keys while preserving backend connection');
   await delay(500);
   await evaluate(ui, "document.querySelector('details').open=true;document.querySelector('#save-connection').click()");
   await waitFor(ui, "document.querySelector('#connection-status').textContent.includes('Connection saved')");

@@ -27,6 +27,6 @@ export function validateChat(data) {
   return data;
 }
 export function backendRequest(path, connection, options) {
-  if (connection.settings.aiEnabled) throw new Error('This backend uses its own AI configuration. Turn off custom AI in the popup Settings first.');
+  if (connection.settings.aiEnabled) throw new Error('This backend uses its own AI configuration. Click Clear custom AI settings in the sidebar’s AI settings.');
   return requestApi(path, connection, options);
 }

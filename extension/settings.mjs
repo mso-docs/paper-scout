@@ -64,6 +64,21 @@ export async function clearSecrets() {
   await Promise.all([chrome.storage.local.remove("secrets"), chrome.storage.session.remove("secrets")]);
 }
 
+// Recovery must work even when a saved AI URL/model is invalid. Preserve the
+// backend connection and remove the AI key from both persistence locations.
+export async function clearAiSettings() {
+  for (const area of [chrome.storage.local, chrome.storage.session]) {
+    await area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+    const { secrets } = await area.get("secrets");
+    if (secrets) await area.set({ secrets: { ...secrets, aiApiKey: "" } });
+  }
+  const { settings } = await chrome.storage.local.get("settings");
+  await chrome.storage.local.set({ settings: {
+    ...DEFAULTS, ...settings, aiEnabled: false, aiBaseUrl: "", aiModel: "",
+  } });
+  return loadSettings();
+}
+
 // Save only this preference so changing context does not overwrite connection keys.
 export async function saveContextRange(contextRange) {
   if (!["highlight", "paragraph", "section"].includes(contextRange)) throw new Error("Choose a valid context range.");

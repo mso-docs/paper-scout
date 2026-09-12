@@ -5,3 +5,4 @@ nav button { padding: 9px 5px; }
 .answer-grounded { border-left: 4px solid #21614e; }
 .answer-ungrounded { border-left: 4px solid #bd7419; }
 #clear-history { margin-top: 12px; }
+#connection-form button { margin-top: 12px; }
